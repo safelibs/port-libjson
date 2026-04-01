@@ -21,8 +21,6 @@ static json_c_visit_userfunc err_return;
 
 int main(void)
 {
-	MC_SET_DEBUG(1);
-
 	const char *input = "{\
 		\"obj1\": 123,\
 		\"obj2\": {\

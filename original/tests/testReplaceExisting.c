@@ -10,8 +10,6 @@
 
 int main(int argc, char **argv)
 {
-	MC_SET_DEBUG(1);
-
 	/*
 	 * Check that replacing an existing object keeps the key valid,
 	 * and that it keeps the order the same.

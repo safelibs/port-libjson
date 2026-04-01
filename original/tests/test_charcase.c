@@ -14,8 +14,6 @@ static void test_case_parse(void);
 
 int main(int argc, char **argv)
 {
-	MC_SET_DEBUG(1);
-
 	test_case_parse();
 
 	return 0;

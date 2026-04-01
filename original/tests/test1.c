@@ -142,12 +142,13 @@ void test_array_del_idx(void)
 	json_object_put(my_array);
 }
 
-void test_array_list_expand_internal(void);
-void test_array_list_expand_internal(void)
+void test_array_put_idx_sparse(void);
+void test_array_put_idx_sparse(void)
 {
 	int rc;
 	size_t ii;
 	size_t idx;
+	size_t orig_len;
 	json_object *my_array;
 #ifdef TEST_FORMATTED
 	int sflags = 0;
@@ -162,17 +163,21 @@ void test_array_list_expand_internal(void)
 	}
 	printf("my_array.to_string()=%s\n", json_object_to_json_string(my_array));
 
-	/* Put iNdex < array->size, no expand. */
+	orig_len = json_object_array_length(my_array);
+
+	/* Replace an existing sparse slot. */
 	rc = json_object_array_put_idx(my_array, 5, json_object_new_int(6));
 	printf("put_idx(5,6)=%d\n", rc);
 
-	/* array->size < Put Index < array->size * 2 <= SIZE_T_MAX, the size = array->size * 2. */
-	idx = ARRAY_LIST_DEFAULT_SIZE * 2 - 1;
+	/*
+	 * Use indices well beyond the current array length to exercise sparse
+	 * growth without relying on the internal arraylist capacity policy.
+	 */
+	idx = orig_len * 9;
 	rc = json_object_array_put_idx(my_array, idx, json_object_new_int(0));
 	printf("put_idx(%d,0)=%d\n", (int)(idx), rc);
 
-	/* array->size * 2 < Put Index, the size = Put Index. */
-	idx = ARRAY_LIST_DEFAULT_SIZE * 2 * 2 + 1;
+	idx = idx * 2 + 3;
 	rc = json_object_array_put_idx(my_array, idx, json_object_new_int(0));
 	printf("put_idx(%d,0)=%d\n", (int)(idx), rc);
 
@@ -233,8 +238,6 @@ int main(int argc, char **argv)
 	int sflags = 0;
 #endif
 
-	MC_SET_DEBUG(1);
-
 #ifdef TEST_FORMATTED
 	sflags = parse_flags(argc, argv);
 #endif
@@ -292,7 +295,7 @@ int main(int argc, char **argv)
 	test_array_insert_idx();
 
 	test_array_del_idx();
-	test_array_list_expand_internal();
+	test_array_put_idx_sparse();
 
 	my_array = json_object_new_array_ext(5);
 	json_object_array_add(my_array, json_object_new_int(3));

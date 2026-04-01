@@ -18,8 +18,6 @@ static void test_incremental_parse(void);
 
 int main(void)
 {
-	MC_SET_DEBUG(1);
-
 	static const char separator[] = "==================================";
 	test_basic_parse();
 	puts(separator);

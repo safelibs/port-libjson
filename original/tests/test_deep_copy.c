@@ -10,7 +10,6 @@
 #include <time.h>
 
 #include "json.h"
-#include "printbuf.h"
 
 static void do_benchmark(json_object *src1);
 
@@ -85,13 +84,6 @@ static const char *json_str3 = "{\"menu\": {"
                                "  }"
                                "}}";
 
-json_object_to_json_string_fn my_custom_serializer;
-int my_custom_serializer(struct json_object *jso, struct printbuf *pb, int level, int flags)
-{
-	sprintbuf(pb, "OTHER");
-	return 0;
-}
-
 json_c_shallow_copy_fn my_shallow_copy;
 int my_shallow_copy(json_object *src, json_object *parent, const char *key, size_t index,
                     json_object **dst)
@@ -104,7 +96,7 @@ int my_shallow_copy(json_object *src, json_object *parent, const char *key, size
 	{
 		printf("CALLED: my_shallow_copy on with_serializer object\n");
 		void *userdata = json_object_get_userdata(src);
-		json_object_set_serializer(*dst, my_custom_serializer, userdata, NULL);
+		json_object_set_serializer(*dst, json_object_double_to_json_string, userdata, NULL);
 		return 2;
 	}
 	return rc;
@@ -191,10 +183,10 @@ int main(int argc, char **argv)
 	json_object_put(dst3);
 
 	printf("\nTesting deep_copy with a custom serializer set\n");
-	json_object *with_serializer = json_object_new_string("notemitted");
+	json_object *with_serializer = json_object_new_double(3.14159);
 
-	char udata[] = "dummy userdata";
-	json_object_set_serializer(with_serializer, my_custom_serializer, udata, NULL);
+	char udata[] = "%.3f";
+	json_object_set_serializer(with_serializer, json_object_double_to_json_string, udata, NULL);
 	json_object_object_add(src1, "with_serializer", with_serializer);
 	dst1 = NULL;
 	/* With a custom serializer in use, a custom shallow_copy function must also be used */
@@ -204,10 +196,10 @@ int main(int argc, char **argv)
 	json_object *dest_with_serializer = json_object_object_get(dst1, "with_serializer");
 	assert(dest_with_serializer != NULL);
 	char *dst_userdata = json_object_get_userdata(dest_with_serializer);
-	assert(strcmp(dst_userdata, "dummy userdata") == 0);
+	assert(strcmp(dst_userdata, "%.3f") == 0);
 
 	const char *special_output = json_object_to_json_string(dest_with_serializer);
-	assert(strcmp(special_output, "OTHER") == 0);
+	assert(strcmp(special_output, "3.142") == 0);
 	printf("\ndeep_copy with custom serializer worked OK.\n");
 	json_object_put(dst1);
 

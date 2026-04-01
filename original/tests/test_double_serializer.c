@@ -9,7 +9,6 @@
 #include <stdio.h>
 
 #include "json_object.h"
-#include "json_object_private.h"
 
 /* Avoid compiler warnings about diving by constant zero */
 double zero_dot_zero = 0.0;
@@ -23,7 +22,7 @@ int main(int argc, char **argv)
 	printf("obj.to_string(standard)=%s\n", json_object_to_json_string(obj));
 
 	printf("Test default serializer with custom userdata:\n");
-	obj->_userdata = udata;
+	json_object_set_userdata(obj, udata, NULL);
 	printf("obj.to_string(userdata)=%s\n", json_object_to_json_string(obj));
 
 	printf("Test explicit serializer with custom userdata:\n");

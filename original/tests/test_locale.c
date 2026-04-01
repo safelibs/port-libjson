@@ -32,8 +32,6 @@ int main(int argc, char **argv)
 	// consistent below.
 	(void)snprintf(buf1, sizeof(buf1), "%f", 0.1);
 
-	MC_SET_DEBUG(1);
-
 	new_obj = json_tokener_parse("[1.2,3.4,123456.78,5.0,2.3e10]");
 
 	(void)snprintf(buf2, sizeof(buf2), "%f", 0.1);

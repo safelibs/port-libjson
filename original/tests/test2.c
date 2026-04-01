@@ -22,8 +22,6 @@ int main(int argc, char **argv)
 	int sflags = 0;
 #endif
 
-	MC_SET_DEBUG(1);
-
 #ifdef TEST_FORMATTED
 	sflags = parse_flags(argc, argv);
 #endif
