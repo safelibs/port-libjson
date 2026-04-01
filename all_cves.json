@@ -1,0 +1,1673 @@
+{
+  "generated_at_utc": "2026-04-01T23:39:11.207387+00:00",
+  "generated_on_local_date": "2026-04-01",
+  "requested_target_name": "libjson",
+  "resolved_target": {
+    "source_package": "json-c",
+    "ubuntu_binary_packages": [
+      "libjson-c5",
+      "libjson-c-dev",
+      "libjson-c-doc",
+      "libjson-c5-udeb"
+    ],
+    "upstream_homepage": "https://github.com/json-c/json-c/wiki",
+    "workspace_source_version": "0.17-1build1",
+    "workspace_notes": "The unpacked Ubuntu 24.04 source package in ./original is json-c, not the unrelated legacy libjson project."
+  },
+  "collection_method": {
+    "nvd_cpe_query": "https://services.nvd.nist.gov/rest/json/cves/2.0?virtualMatchString=cpe:2.3:a:json-c:json-c:*:*:*:*:*:*:*:*&resultsPerPage=200",
+    "debian_source_package_page": "https://security-tracker.debian.org/tracker/source-package/json-c",
+    "nvd_ids": [
+      "CVE-2013-6370",
+      "CVE-2013-6371",
+      "CVE-2020-12762",
+      "CVE-2021-32292"
+    ],
+    "debian_tracker_ids": [
+      "CVE-2013-6370",
+      "CVE-2013-6371",
+      "CVE-2020-12762",
+      "CVE-2021-32292"
+    ],
+    "union_ids": [
+      "CVE-2013-6370",
+      "CVE-2013-6371",
+      "CVE-2020-12762",
+      "CVE-2021-32292"
+    ],
+    "completeness_note": "As retrieved on 2026-04-01, NVD CPE matching for json-c and Debian security-tracker resolved issues both yielded the same four CVE IDs."
+  },
+  "cve_count": 4,
+  "cves": [
+    {
+      "id": "CVE-2013-6370",
+      "nvd": {
+        "id": "CVE-2013-6370",
+        "sourceIdentifier": "secalert@redhat.com",
+        "published": "2014-04-22T13:06:26.697",
+        "lastModified": "2025-04-12T10:46:40.837",
+        "vulnStatus": "Deferred",
+        "cveTags": [],
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "Buffer overflow in the printbuf APIs in json-c before 0.12 allows remote attackers to cause a denial of service via unspecified vectors."
+          },
+          {
+            "lang": "es",
+            "value": "Desbordamiento de buffer en las APIs printbuf en json-c anterior a 0.12 permite a atacantes remotos causar una denegaci\u00f3n de servicio a trav\u00e9s de vectores no especificados."
+          }
+        ],
+        "metrics": {
+          "cvssMetricV2": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "2.0",
+                "vectorString": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+                "baseScore": 5.0,
+                "accessVector": "NETWORK",
+                "accessComplexity": "LOW",
+                "authentication": "NONE",
+                "confidentialityImpact": "NONE",
+                "integrityImpact": "NONE",
+                "availabilityImpact": "PARTIAL"
+              },
+              "baseSeverity": "MEDIUM",
+              "exploitabilityScore": 10.0,
+              "impactScore": 2.9,
+              "acInsufInfo": false,
+              "obtainAllPrivilege": false,
+              "obtainUserPrivilege": false,
+              "obtainOtherPrivilege": false,
+              "userInteractionRequired": false
+            }
+          ]
+        },
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-119"
+              }
+            ]
+          }
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:json-c:json-c:*:*:*:*:*:*:*:*",
+                    "versionEndExcluding": "0.12-20140410",
+                    "matchCriteriaId": "AD66C8D0-5FF4-49EB-8347-FC463F45157F"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:fedoraproject:fedora:20:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "FF47C9F0-D8DA-4B55-89EB-9B2C9383ADB9"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "references": [
+          {
+            "url": "http://lists.fedoraproject.org/pipermail/package-announce/2014-April/131845.html",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Mailing List"
+            ]
+          },
+          {
+            "url": "http://secunia.com/advisories/57791",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Permissions Required",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.mandriva.com/security/advisories?name=MDVSA-2014:079",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Broken Link"
+            ]
+          },
+          {
+            "url": "http://www.oracle.com/technetwork/topics/security/bulletinoct2015-2511968.html",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.securityfocus.com/bid/66720",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Third Party Advisory",
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://bugzilla.redhat.com/show_bug.cgi?id=1032322",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Issue Tracking"
+            ]
+          },
+          {
+            "url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/92540",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Exploit",
+              "Patch"
+            ]
+          },
+          {
+            "url": "http://lists.fedoraproject.org/pipermail/package-announce/2014-April/131845.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Mailing List"
+            ]
+          },
+          {
+            "url": "http://secunia.com/advisories/57791",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Permissions Required",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.mandriva.com/security/advisories?name=MDVSA-2014:079",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Broken Link"
+            ]
+          },
+          {
+            "url": "http://www.oracle.com/technetwork/topics/security/bulletinoct2015-2511968.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.securityfocus.com/bid/66720",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory",
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://bugzilla.redhat.com/show_bug.cgi?id=1032322",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Issue Tracking"
+            ]
+          },
+          {
+            "url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/92540",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Exploit",
+              "Patch"
+            ]
+          }
+        ]
+      },
+      "debian_tracker": {
+        "url": "https://security-tracker.debian.org/tracker/CVE-2013-6370",
+        "description": "Buffer overflow in the printbuf APIs in json-c before 0.12 allows remote attackers to cause a denial of service via unspecified vectors.",
+        "reference_ids": [],
+        "debian_bug_ids": [
+          "744008"
+        ],
+        "vulnerable_and_fixed_packages_table": [
+          [
+            "Source Package",
+            "Release",
+            "Version",
+            "Status"
+          ],
+          [
+            "json-c ( PTS )",
+            "bullseye (security), bullseye",
+            "0.15-2+deb11u1",
+            "fixed"
+          ],
+          [
+            "",
+            "bookworm",
+            "0.16-2",
+            "fixed"
+          ],
+          [
+            "",
+            "trixie",
+            "0.18+ds-1",
+            "fixed"
+          ],
+          [
+            "",
+            "forky, sid",
+            "0.18+ds-3",
+            "fixed"
+          ]
+        ],
+        "fixed_versions_table": [
+          [
+            "Package",
+            "Type",
+            "Release",
+            "Fixed Version",
+            "Urgency",
+            "Origin",
+            "Debian Bugs"
+          ],
+          [
+            "json-c",
+            "source",
+            "(unstable)",
+            "0.11-4",
+            "",
+            "",
+            "744008"
+          ]
+        ],
+        "notes_text": "[wheezy] - json-c <no-dsa> (Minor issue) \n [squeeze] - json-c <no-dsa> (Minor issue) \n https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015",
+        "notes_lines": [
+          "[wheezy] - json-c <no-dsa> (Minor issue)",
+          "[squeeze] - json-c <no-dsa> (Minor issue)",
+          "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015"
+        ]
+      },
+      "ubuntu_security": {
+        "url": "https://ubuntu.com/security/CVE-2013-6370",
+        "description": "Buffer overflow in the printbuf APIs in json-c before 0.12 allows remote attackers to cause a denial of service via unspecified vectors.",
+        "priority": null,
+        "status_rows": [
+          {
+            "package": "json-c",
+            "ubuntu_release": "14.04 LTS trusty",
+            "status": "Fixed 0.11-3ubuntu1.2"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "13.10 saucy",
+            "status": "Fixed 0.11-2ubuntu1.2"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "12.10 quantal",
+            "status": "Ignored end of life"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "12.04 LTS precise",
+            "status": "Fixed 0.9-1ubuntu1.1"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "10.04 LTS lucid",
+            "status": "Ignored end of life"
+          }
+        ],
+        "notes": [],
+        "patch_details": [
+          {
+            "package": "json-c",
+            "details_text": "Upstream: 64e3690",
+            "urls": [
+              "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015"
+            ]
+          }
+        ],
+        "usns": [
+          {
+            "id": "USN-2245-1",
+            "url": "https://usn.ubuntu.com/USN-2245-1",
+            "description": "json-c vulnerabilities",
+            "date": "12 June 2014"
+          }
+        ],
+        "other_reference_urls": [
+          "https://www.cve.org/CVERecord?id=CVE-2013-6370"
+        ]
+      }
+    },
+    {
+      "id": "CVE-2013-6371",
+      "nvd": {
+        "id": "CVE-2013-6371",
+        "sourceIdentifier": "secalert@redhat.com",
+        "published": "2014-04-22T13:06:26.710",
+        "lastModified": "2025-04-12T10:46:40.837",
+        "vulnStatus": "Deferred",
+        "cveTags": [],
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "The hash functionality in json-c before 0.12 allows context-dependent attackers to cause a denial of service (CPU consumption) via crafted JSON data, involving collisions."
+          },
+          {
+            "lang": "es",
+            "value": "La funcionalidad de hash en json-c anterior a 0.12 permite a atacantes dependientes de contexto causar una denegaci\u00f3n de servicio (consumo de CPU) a trav\u00e9s de datos JSON manipulados, involucrando colisiones."
+          }
+        ],
+        "metrics": {
+          "cvssMetricV2": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "2.0",
+                "vectorString": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+                "baseScore": 5.0,
+                "accessVector": "NETWORK",
+                "accessComplexity": "LOW",
+                "authentication": "NONE",
+                "confidentialityImpact": "NONE",
+                "integrityImpact": "NONE",
+                "availabilityImpact": "PARTIAL"
+              },
+              "baseSeverity": "MEDIUM",
+              "exploitabilityScore": 10.0,
+              "impactScore": 2.9,
+              "acInsufInfo": false,
+              "obtainAllPrivilege": false,
+              "obtainUserPrivilege": false,
+              "obtainOtherPrivilege": false,
+              "userInteractionRequired": false
+            }
+          ]
+        },
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-310"
+              }
+            ]
+          }
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:json-c:json-c:*:*:*:*:*:*:*:*",
+                    "versionEndExcluding": "0.12-20140410",
+                    "matchCriteriaId": "AD66C8D0-5FF4-49EB-8347-FC463F45157F"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:fedoraproject:fedora:20:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "FF47C9F0-D8DA-4B55-89EB-9B2C9383ADB9"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "references": [
+          {
+            "url": "http://lists.fedoraproject.org/pipermail/package-announce/2014-April/131845.html",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://secunia.com/advisories/57791",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Permissions Required",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.mandriva.com/security/advisories?name=MDVSA-2014:079",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Broken Link"
+            ]
+          },
+          {
+            "url": "http://www.oracle.com/technetwork/topics/security/bulletinoct2015-2511968.html",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.securityfocus.com/bid/66715",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Third Party Advisory",
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://bugzilla.redhat.com/show_bug.cgi?id=1032311",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Issue Tracking"
+            ]
+          },
+          {
+            "url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/92541",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015",
+            "source": "secalert@redhat.com",
+            "tags": [
+              "Issue Tracking",
+              "Patch"
+            ]
+          },
+          {
+            "url": "http://lists.fedoraproject.org/pipermail/package-announce/2014-April/131845.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://secunia.com/advisories/57791",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Permissions Required",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.mandriva.com/security/advisories?name=MDVSA-2014:079",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Broken Link"
+            ]
+          },
+          {
+            "url": "http://www.oracle.com/technetwork/topics/security/bulletinoct2015-2511968.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "http://www.securityfocus.com/bid/66715",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory",
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://bugzilla.redhat.com/show_bug.cgi?id=1032311",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Issue Tracking"
+            ]
+          },
+          {
+            "url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/92541",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "VDB Entry"
+            ]
+          },
+          {
+            "url": "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Issue Tracking",
+              "Patch"
+            ]
+          }
+        ]
+      },
+      "debian_tracker": {
+        "url": "https://security-tracker.debian.org/tracker/CVE-2013-6371",
+        "description": "The hash functionality in json-c before 0.12 allows context-dependent attackers to cause a denial of service (CPU consumption) via crafted JSON data, involving collisions.",
+        "reference_ids": [],
+        "debian_bug_ids": [
+          "744008"
+        ],
+        "vulnerable_and_fixed_packages_table": [
+          [
+            "Source Package",
+            "Release",
+            "Version",
+            "Status"
+          ],
+          [
+            "json-c ( PTS )",
+            "bullseye (security), bullseye",
+            "0.15-2+deb11u1",
+            "fixed"
+          ],
+          [
+            "",
+            "bookworm",
+            "0.16-2",
+            "fixed"
+          ],
+          [
+            "",
+            "trixie",
+            "0.18+ds-1",
+            "fixed"
+          ],
+          [
+            "",
+            "forky, sid",
+            "0.18+ds-3",
+            "fixed"
+          ]
+        ],
+        "fixed_versions_table": [
+          [
+            "Package",
+            "Type",
+            "Release",
+            "Fixed Version",
+            "Urgency",
+            "Origin",
+            "Debian Bugs"
+          ],
+          [
+            "json-c",
+            "source",
+            "(unstable)",
+            "0.11-4",
+            "",
+            "",
+            "744008"
+          ]
+        ],
+        "notes_text": "[wheezy] - json-c <no-dsa> (Minor issue) \n [squeeze] - json-c <no-dsa> (Minor issue) \n https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015",
+        "notes_lines": [
+          "[wheezy] - json-c <no-dsa> (Minor issue)",
+          "[squeeze] - json-c <no-dsa> (Minor issue)",
+          "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015"
+        ]
+      },
+      "ubuntu_security": {
+        "url": "https://ubuntu.com/security/CVE-2013-6371",
+        "description": "The hash functionality in json-c before 0.12 allows context-dependent attackers to cause a denial of service (CPU consumption) via crafted JSON data, involving collisions.",
+        "priority": null,
+        "status_rows": [
+          {
+            "package": "json-c",
+            "ubuntu_release": "14.04 LTS trusty",
+            "status": "Fixed 0.11-3ubuntu1.2"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "13.10 saucy",
+            "status": "Fixed 0.11-2ubuntu1.2"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "12.10 quantal",
+            "status": "Ignored end of life"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "12.04 LTS precise",
+            "status": "Fixed 0.9-1ubuntu1.1"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "10.04 LTS lucid",
+            "status": "Ignored end of life"
+          }
+        ],
+        "notes": [],
+        "patch_details": [
+          {
+            "package": "json-c",
+            "details_text": "Upstream: 64e3690",
+            "urls": [
+              "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015"
+            ]
+          }
+        ],
+        "usns": [
+          {
+            "id": "USN-2245-1",
+            "url": "https://usn.ubuntu.com/USN-2245-1",
+            "description": "json-c vulnerabilities",
+            "date": "12 June 2014"
+          }
+        ],
+        "other_reference_urls": [
+          "https://www.cve.org/CVERecord?id=CVE-2013-6371"
+        ]
+      }
+    },
+    {
+      "id": "CVE-2020-12762",
+      "nvd": {
+        "id": "CVE-2020-12762",
+        "sourceIdentifier": "cve@mitre.org",
+        "published": "2020-05-09T18:15:11.283",
+        "lastModified": "2025-11-03T20:15:44.663",
+        "vulnStatus": "Modified",
+        "cveTags": [],
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "json-c through 0.14 has an integer overflow and out-of-bounds write via a large JSON file, as demonstrated by printbuf_memappend."
+          },
+          {
+            "lang": "es",
+            "value": "json-c versiones hasta 0.14, presenta un desbordamiento de enteros y una escritura fuera de l\u00edmites por medio de un archivo JSON grande, como es demostrado por la funci\u00f3n printbuf_memappend."
+          }
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+                "baseScore": 7.8,
+                "baseSeverity": "HIGH",
+                "attackVector": "LOCAL",
+                "attackComplexity": "LOW",
+                "privilegesRequired": "NONE",
+                "userInteraction": "REQUIRED",
+                "scope": "UNCHANGED",
+                "confidentialityImpact": "HIGH",
+                "integrityImpact": "HIGH",
+                "availabilityImpact": "HIGH"
+              },
+              "exploitabilityScore": 1.8,
+              "impactScore": 5.9
+            },
+            {
+              "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+              "type": "Secondary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H",
+                "baseScore": 7.8,
+                "baseSeverity": "HIGH",
+                "attackVector": "LOCAL",
+                "attackComplexity": "LOW",
+                "privilegesRequired": "NONE",
+                "userInteraction": "REQUIRED",
+                "scope": "UNCHANGED",
+                "confidentialityImpact": "HIGH",
+                "integrityImpact": "HIGH",
+                "availabilityImpact": "HIGH"
+              },
+              "exploitabilityScore": 1.8,
+              "impactScore": 5.9
+            }
+          ],
+          "cvssMetricV2": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "2.0",
+                "vectorString": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+                "baseScore": 6.8,
+                "accessVector": "NETWORK",
+                "accessComplexity": "MEDIUM",
+                "authentication": "NONE",
+                "confidentialityImpact": "PARTIAL",
+                "integrityImpact": "PARTIAL",
+                "availabilityImpact": "PARTIAL"
+              },
+              "baseSeverity": "MEDIUM",
+              "exploitabilityScore": 8.6,
+              "impactScore": 6.4,
+              "acInsufInfo": false,
+              "obtainAllPrivilege": false,
+              "obtainUserPrivilege": false,
+              "obtainOtherPrivilege": false,
+              "userInteractionRequired": true
+            }
+          ]
+        },
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-190"
+              },
+              {
+                "lang": "en",
+                "value": "CWE-787"
+              }
+            ]
+          },
+          {
+            "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+            "type": "Secondary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-787"
+              }
+            ]
+          }
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:json-c:json-c:*:*:*:*:*:*:*:*",
+                    "versionEndExcluding": "0.15-20200726",
+                    "matchCriteriaId": "1B3DEC32-B4B2-4FE9-B702-FB50EB3561C3"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:fedoraproject:fedora:30:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "97A4B8DF-58DA-4AB6-A1F9-331B36409BA3"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:fedoraproject:fedora:31:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "80F0FA5D-8D3B-4C0E-81E2-87998286AF33"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:fedoraproject:fedora:32:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "36D96259-24BD-44E2-96D9-78CE1D41F956"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:debian:debian_linux:8.0:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "C11E6FB0-C8C0-4527-9AA0-CB9B316F8F43"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:debian:debian_linux:9.0:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "DEECE5FC-CACF-4496-A3E7-164736409252"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:debian:debian_linux:10.0:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "07B237A9-69A3-4A9C-9DA0-4E06BD37AE73"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:canonical:ubuntu_linux:12.04:*:*:*:-:*:*:*",
+                    "matchCriteriaId": "CB66DB75-2B16-4EBF-9B93-CE49D8086E41"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:canonical:ubuntu_linux:14.04:*:*:*:esm:*:*:*",
+                    "matchCriteriaId": "815D70A8-47D3-459C-A32C-9FEACA0659D1"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:canonical:ubuntu_linux:16.04:*:*:*:esm:*:*:*",
+                    "matchCriteriaId": "7A5301BF-1402-4BE0-A0F8-69FBE79BC6D6"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:canonical:ubuntu_linux:18.04:*:*:*:lts:*:*:*",
+                    "matchCriteriaId": "23A7C53F-B80F-4E6A-AFA9-58EEA84BE11D"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:canonical:ubuntu_linux:19.10:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "A31C8344-3E02-4EB8-8BD8-4C84B7959624"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:o:canonical:ubuntu_linux:20.04:*:*:*:lts:*:*:*",
+                    "matchCriteriaId": "902B8056-9E37-443B-8905-8AA93E2447FB"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:siemens:sinec_ins:-:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "0C054103-9D45-40D8-A29F-4287276E8BE6"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:siemens:sinec_ins:1.0:-:*:*:*:*:*:*",
+                    "matchCriteriaId": "4664B195-AF14-4834-82B3-0B2C98020EB6"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:siemens:sinec_ins:1.0:sp1:*:*:*:*:*:*",
+                    "matchCriteriaId": "75BC588E-CDF0-404E-AD61-02093A1DF343"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "references": [
+          {
+            "url": "https://cert-portal.siemens.com/productcert/pdf/ssa-637483.pdf",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://github.com/json-c/json-c/pull/592",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Exploit",
+              "Patch",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://github.com/rsyslog/libfastjson/issues/161",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Exploit",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2020/05/msg00032.html",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Mailing List",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2020/05/msg00034.html",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Mailing List",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2020/07/msg00031.html",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Mailing List",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2023/06/msg00023.html",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/CBR36IXYBHITAZFB5PFBJTED22WO5ONB/",
+            "source": "cve@mitre.org"
+          },
+          {
+            "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/CQQRRGBQCAWNCCJ2HN3W5SSCZ4QGMXQI/",
+            "source": "cve@mitre.org"
+          },
+          {
+            "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/W226TSCJBEOXDUFVKNWNH7ETG7AR6MCS/",
+            "source": "cve@mitre.org"
+          },
+          {
+            "url": "https://security.gentoo.org/glsa/202006-13",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://security.netapp.com/advisory/ntap-20210521-0001/",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://usn.ubuntu.com/4360-1/",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://usn.ubuntu.com/4360-4/",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://www.debian.org/security/2020/dsa-4741",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://cert-portal.siemens.com/productcert/pdf/ssa-637483.pdf",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://github.com/json-c/json-c/pull/592",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Exploit",
+              "Patch",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://github.com/rsyslog/libfastjson/issues/161",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Exploit",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2020/05/msg00032.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Mailing List",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2020/05/msg00034.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Mailing List",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2020/07/msg00031.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Mailing List",
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2023/06/msg00023.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://lists.debian.org/debian-lts-announce/2025/07/msg00021.html",
+            "source": "af854a3a-2127-422b-91ae-364da2661108"
+          },
+          {
+            "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/CBR36IXYBHITAZFB5PFBJTED22WO5ONB/",
+            "source": "af854a3a-2127-422b-91ae-364da2661108"
+          },
+          {
+            "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/CQQRRGBQCAWNCCJ2HN3W5SSCZ4QGMXQI/",
+            "source": "af854a3a-2127-422b-91ae-364da2661108"
+          },
+          {
+            "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/W226TSCJBEOXDUFVKNWNH7ETG7AR6MCS/",
+            "source": "af854a3a-2127-422b-91ae-364da2661108"
+          },
+          {
+            "url": "https://security.gentoo.org/glsa/202006-13",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://security.netapp.com/advisory/ntap-20210521-0001/",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://usn.ubuntu.com/4360-1/",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://usn.ubuntu.com/4360-4/",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://www.debian.org/security/2020/dsa-4741",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          }
+        ]
+      },
+      "debian_tracker": {
+        "url": "https://security-tracker.debian.org/tracker/CVE-2020-12762",
+        "description": "json-c through 0.14 has an integer overflow and out-of-bounds write via a large JSON file, as demonstrated by printbuf_memappend.",
+        "reference_ids": [
+          "DLA-2228-1",
+          "DLA-2228-2",
+          "DLA-2301-1",
+          "DLA-3461-1",
+          "DLA-4258-1",
+          "DSA-4741-1"
+        ],
+        "debian_bug_ids": [
+          "1035302",
+          "960326"
+        ],
+        "vulnerable_and_fixed_packages_table": [
+          [
+            "Source Package",
+            "Release",
+            "Version",
+            "Status"
+          ],
+          [
+            "json-c ( PTS )",
+            "bullseye (security), bullseye",
+            "0.15-2+deb11u1",
+            "fixed"
+          ],
+          [
+            "",
+            "bookworm",
+            "0.16-2",
+            "fixed"
+          ],
+          [
+            "",
+            "trixie",
+            "0.18+ds-1",
+            "fixed"
+          ],
+          [
+            "",
+            "forky, sid",
+            "0.18+ds-3",
+            "fixed"
+          ],
+          [
+            "libfastjson ( PTS )",
+            "bullseye",
+            "0.99.9-1",
+            "vulnerable"
+          ],
+          [
+            "",
+            "bullseye (security)",
+            "0.99.9-1+deb11u1",
+            "fixed"
+          ],
+          [
+            "",
+            "bookworm",
+            "1.2304.0-1",
+            "fixed"
+          ],
+          [
+            "",
+            "forky, sid, trixie",
+            "1.2304.0-2",
+            "fixed"
+          ]
+        ],
+        "fixed_versions_table": [
+          [
+            "Package",
+            "Type",
+            "Release",
+            "Fixed Version",
+            "Urgency",
+            "Origin",
+            "Debian Bugs"
+          ],
+          [
+            "json-c",
+            "source",
+            "jessie",
+            "0.11-4+deb8u2",
+            "",
+            "DLA-2228-2",
+            ""
+          ],
+          [
+            "json-c",
+            "source",
+            "stretch",
+            "0.12.1-1.1+deb9u1",
+            "",
+            "DLA-2301-1",
+            ""
+          ],
+          [
+            "json-c",
+            "source",
+            "buster",
+            "0.12.1+ds-2+deb10u1",
+            "",
+            "DSA-4741-1",
+            ""
+          ],
+          [
+            "json-c",
+            "source",
+            "(unstable)",
+            "0.13.1+dfsg-8",
+            "",
+            "",
+            "960326"
+          ],
+          [
+            "libfastjson",
+            "source",
+            "buster",
+            "0.99.8-2+deb10u1",
+            "",
+            "DLA-3461-1",
+            ""
+          ],
+          [
+            "libfastjson",
+            "source",
+            "bullseye",
+            "0.99.9-1+deb11u1",
+            "",
+            "DLA-4258-1",
+            ""
+          ],
+          [
+            "libfastjson",
+            "source",
+            "(unstable)",
+            "1.2304.0-1",
+            "",
+            "",
+            "1035302"
+          ]
+        ],
+        "notes_text": "https://github.com/json-c/json-c/pull/592 \n https://github.com/json-c/json-c/commit/099016b7e8d70a6d5dd814e788bba08d33d48426 \n https://github.com/json-c/json-c/commit/77d935b7ae7871a1940cd827e850e6063044ec45 \n https://github.com/json-c/json-c/commit/d07b91014986900a3a75f306d302e13e005e9d67 \n https://github.com/json-c/json-c/commit/519dfe1591d85432986f9762d41d1a883198c157 \n https://github.com/json-c/json-c/commit/a59d5acfab4485d5133114df61785b1fc633e0c6 \n d07b91014986 (\"Fix integer overflows.\") introduces a regression tracked as: \n https://github.com/json-c/json-c/issues/599 \n https://github.com/json-c/json-c/pull/610 \nWorking backports for older branches: https://github.com/json-c/json-c/pull/608 \n https://github.com/rsyslog/libfastjson/issues/161",
+        "notes_lines": [
+          "https://github.com/json-c/json-c/pull/592",
+          "https://github.com/json-c/json-c/commit/099016b7e8d70a6d5dd814e788bba08d33d48426",
+          "https://github.com/json-c/json-c/commit/77d935b7ae7871a1940cd827e850e6063044ec45",
+          "https://github.com/json-c/json-c/commit/d07b91014986900a3a75f306d302e13e005e9d67",
+          "https://github.com/json-c/json-c/commit/519dfe1591d85432986f9762d41d1a883198c157",
+          "https://github.com/json-c/json-c/commit/a59d5acfab4485d5133114df61785b1fc633e0c6",
+          "d07b91014986 (\"Fix integer overflows.\") introduces a regression tracked as:",
+          "https://github.com/json-c/json-c/issues/599",
+          "https://github.com/json-c/json-c/pull/610",
+          "Working backports for older branches: https://github.com/json-c/json-c/pull/608",
+          "https://github.com/rsyslog/libfastjson/issues/161"
+        ]
+      },
+      "ubuntu_security": {
+        "url": "https://ubuntu.com/security/CVE-2020-12762",
+        "description": "json-c through 0.14 has an integer overflow and out-of-bounds write via a large JSON file, as demonstrated by printbuf_memappend.",
+        "priority": null,
+        "status_rows": [
+          {
+            "package": "json-c",
+            "ubuntu_release": "20.04 LTS focal",
+            "status": "Fixed 0.13.1+dfsg-7ubuntu0.3"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "19.10 eoan",
+            "status": "Fixed 0.13.1+dfsg-4ubuntu0.3"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "18.04 LTS bionic",
+            "status": "Fixed 0.12.1-1.3ubuntu0.3"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "16.04 LTS xenial",
+            "status": "Fixed 0.11-4ubuntu2.6"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "14.04 LTS trusty",
+            "status": "Fixed 0.11-3ubuntu1.2+esm3 Ubuntu Pro Fix available with Ubuntu Pro ."
+          }
+        ],
+        "notes": [
+          {
+            "author": "mdeslaur",
+            "text": "USN-4360-1 introduced a regression and the problematic fix was backed out in USN-4360-2 and USN-4360-3 pending further investigation."
+          }
+        ],
+        "patch_details": [
+          {
+            "package": "json-c",
+            "details_text": "Upstream: https://github.com/json-c/json-c/pull/592/commits/099016b7e8d70a6d5dd814e788bba08d33d48426 Upstream: https://github.com/json-c/json-c/pull/592/commits/77d935b7ae7871a1940cd827e850e6063044ec45 Upstream: https://github.com/json-c/json-c/pull/592/commits/d07b91014986900a3a75f306d302e13e005e9d67 Upstream: 7a4807f",
+            "urls": [
+              "https://github.com/json-c/json-c/pull/592/commits/099016b7e8d70a6d5dd814e788bba08d33d48426",
+              "https://github.com/json-c/json-c/pull/592/commits/77d935b7ae7871a1940cd827e850e6063044ec45",
+              "https://github.com/json-c/json-c/pull/592/commits/d07b91014986900a3a75f306d302e13e005e9d67",
+              "https://github.com/besser82/json-c/commit/7a4807fe0cdb1d9e20273c79762cbf54833aaae4"
+            ]
+          }
+        ],
+        "usns": [
+          {
+            "id": "USN-4360-4",
+            "url": "https://usn.ubuntu.com/USN-4360-4",
+            "description": "json-c vulnerability",
+            "date": "28 May 2020"
+          },
+          {
+            "id": "USN-4360-1",
+            "url": "https://usn.ubuntu.com/USN-4360-1",
+            "description": "json-c vulnerability",
+            "date": "14 May 2020"
+          }
+        ],
+        "other_reference_urls": [
+          "https://github.com/json-c/json-c/pull/592",
+          "https://www.cve.org/CVERecord?id=CVE-2020-12762"
+        ]
+      }
+    },
+    {
+      "id": "CVE-2021-32292",
+      "nvd": {
+        "id": "CVE-2021-32292",
+        "sourceIdentifier": "cve@mitre.org",
+        "published": "2023-08-22T19:16:20.350",
+        "lastModified": "2025-06-25T16:55:47.280",
+        "vulnStatus": "Analyzed",
+        "cveTags": [],
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "An issue was discovered in json-c from 20200420 (post 0.14 unreleased code) through 0.15-20200726. A stack-buffer-overflow exists in the auxiliary sample program json_parse which is located in the function parseit."
+          },
+          {
+            "lang": "es",
+            "value": "Se descubri\u00f3 un problema en json-c desde 20200420 (post 0.14 c\u00f3digo no publicado) hasta 0.15-20200726. Existe un Desbordamiento de B\u00fafer en el programa de ejemplo auxiliar json_parse que se encuentra en el an\u00e1lisis de funciones."
+          }
+        ],
+        "metrics": {
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                "baseScore": 9.8,
+                "baseSeverity": "CRITICAL",
+                "attackVector": "NETWORK",
+                "attackComplexity": "LOW",
+                "privilegesRequired": "NONE",
+                "userInteraction": "NONE",
+                "scope": "UNCHANGED",
+                "confidentialityImpact": "HIGH",
+                "integrityImpact": "HIGH",
+                "availabilityImpact": "HIGH"
+              },
+              "exploitabilityScore": 3.9,
+              "impactScore": 5.9
+            }
+          ]
+        },
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-787"
+              }
+            ]
+          }
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:netapp:active_iq_unified_manager:-:*:*:*:*:vmware_vsphere:*:*",
+                    "matchCriteriaId": "3A756737-1CC4-42C2-A4DF-E1C893B4E2D5"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:json-c:json-c:0.15-20200726:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "CB1EAD80-4267-4531-8302-EFB87F6AF691"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "references": [
+          {
+            "url": "https://github.com/json-c/json-c/issues/654",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Exploit",
+              "Issue Tracking"
+            ]
+          },
+          {
+            "url": "https://security.netapp.com/advisory/ntap-20230929-0010/",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://www.debian.org/security/2023/dsa-5486",
+            "source": "cve@mitre.org",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://github.com/json-c/json-c/issues/654",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Exploit",
+              "Issue Tracking"
+            ]
+          },
+          {
+            "url": "https://security.netapp.com/advisory/ntap-20230929-0010/",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          },
+          {
+            "url": "https://www.debian.org/security/2023/dsa-5486",
+            "source": "af854a3a-2127-422b-91ae-364da2661108",
+            "tags": [
+              "Third Party Advisory"
+            ]
+          }
+        ]
+      },
+      "debian_tracker": {
+        "url": "https://security-tracker.debian.org/tracker/CVE-2021-32292",
+        "description": "An issue was discovered in json-c from 20200420 (post 0.14 unreleased code) through 0.15-20200726. A stack-buffer-overflow exists in the auxiliary sample program json_parse which is located in the function parseit.",
+        "reference_ids": [
+          "DSA-5486-1"
+        ],
+        "debian_bug_ids": [],
+        "vulnerable_and_fixed_packages_table": [
+          [
+            "Source Package",
+            "Release",
+            "Version",
+            "Status"
+          ],
+          [
+            "json-c ( PTS )",
+            "bullseye (security), bullseye",
+            "0.15-2+deb11u1",
+            "fixed"
+          ],
+          [
+            "",
+            "bookworm",
+            "0.16-2",
+            "fixed"
+          ],
+          [
+            "",
+            "trixie",
+            "0.18+ds-1",
+            "fixed"
+          ],
+          [
+            "",
+            "forky, sid",
+            "0.18+ds-3",
+            "fixed"
+          ]
+        ],
+        "fixed_versions_table": [
+          [
+            "Package",
+            "Type",
+            "Release",
+            "Fixed Version",
+            "Urgency",
+            "Origin",
+            "Debian Bugs"
+          ],
+          [
+            "json-c",
+            "source",
+            "buster",
+            "(not affected)",
+            "",
+            "",
+            ""
+          ],
+          [
+            "json-c",
+            "source",
+            "bullseye",
+            "0.15-2+deb11u1",
+            "",
+            "DSA-5486-1",
+            ""
+          ],
+          [
+            "json-c",
+            "source",
+            "(unstable)",
+            "0.16-1",
+            "",
+            "",
+            ""
+          ]
+        ],
+        "notes_text": "[buster] - json-c <not-affected> (Vulnerable code was introduced later) \n https://github.com/json-c/json-c/issues/654 \n https://github.com/json-c/json-c/pull/655 \n https://github.com/json-c/json-c/commit/4e9e44e5258dee7654f74948b0dd5da39c28beec (json-c-0.16-20220414)",
+        "notes_lines": [
+          "[buster] - json-c <not-affected> (Vulnerable code was introduced later)",
+          "https://github.com/json-c/json-c/issues/654",
+          "https://github.com/json-c/json-c/pull/655",
+          "https://github.com/json-c/json-c/commit/4e9e44e5258dee7654f74948b0dd5da39c28beec (json-c-0.16-20220414)"
+        ]
+      },
+      "ubuntu_security": {
+        "url": "https://ubuntu.com/security/CVE-2021-32292",
+        "description": "An issue was discovered in json-c from 20200420 (post 0.14 unreleased code) through 0.15-20200726. A stack-buffer-overflow exists in the auxiliary sample program json_parse which is located in the function parseit.",
+        "priority": null,
+        "status_rows": [
+          {
+            "package": "json-c",
+            "ubuntu_release": "23.04 lunar",
+            "status": "Not affected"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "22.04 LTS jammy",
+            "status": "Fixed 0.15-3~ubuntu1.22.04.2"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "20.04 LTS focal",
+            "status": "Not affected"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "18.04 LTS bionic",
+            "status": "Not affected"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "16.04 LTS xenial",
+            "status": "Not affected"
+          },
+          {
+            "package": "json-c",
+            "ubuntu_release": "14.04 LTS trusty",
+            "status": "Not affected"
+          }
+        ],
+        "notes": [],
+        "patch_details": [
+          {
+            "package": "json-c",
+            "details_text": "Upstream: https://github.com/json-c/json-c/pull/655/commits/4e9e44e5258dee7654f74948b0dd5da39c28beec",
+            "urls": [
+              "https://github.com/json-c/json-c/pull/655/commits/4e9e44e5258dee7654f74948b0dd5da39c28beec"
+            ]
+          }
+        ],
+        "usns": [
+          {
+            "id": "USN-6310-1",
+            "url": "https://usn.ubuntu.com/USN-6310-1",
+            "description": "json-c vulnerability",
+            "date": "28 August 2023"
+          }
+        ],
+        "other_reference_urls": [
+          "https://github.com/json-c/json-c/issues/654",
+          "https://www.cve.org/CVERecord?id=CVE-2021-32292"
+        ]
+      }
+    }
+  ]
+}
