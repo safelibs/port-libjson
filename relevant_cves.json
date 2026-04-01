@@ -1,0 +1,58 @@
+{
+  "generated_at_utc": "2026-04-01T23:43:13Z",
+  "source_file": "/home/yans/code/safelibs/ported/libjson/all_cves.json",
+  "analysis_scope": {
+    "goal": "Identify non-memory-corruption CVEs from the json-c corpus that may still matter to a Rust reimplementation.",
+    "port_target": "json-c core library",
+    "notes": [
+      "Rust removes the memory-corruption issues in this corpus, but it does not automatically prevent algorithmic-complexity denial of service.",
+      "json-c objects are backed by a hash table, so collision behavior is still relevant if the Rust port uses a predictable hasher or preserves the original hashing strategy.",
+      "An idiomatic Rust implementation using a randomized default hasher for object keys would likely mitigate the only surviving relevant CVE."
+    ]
+  },
+  "summary": {
+    "input_record_count": 4,
+    "non_memory_corruption_record_count": 1,
+    "relevant_to_rust_reimplementation_count": 1,
+    "excluded_memory_corruption_count": 3
+  },
+  "relevant_cves": [
+    {
+      "cve_id": "CVE-2013-6371",
+      "relevance": "conditional",
+      "affected_component": "core object-key hash table",
+      "affects_core_library": true,
+      "affected_versions": "< 0.12",
+      "cwe_ids": [
+        "CWE-310"
+      ],
+      "issue_type": "hash-collision CPU denial of service",
+      "description": "The hash functionality in json-c before 0.12 allows context-dependent attackers to cause a denial of service (CPU consumption) via crafted JSON data involving collisions.",
+      "why_it_still_matters_in_rust": "Rust does not prevent adversarial collision attacks against predictable hash tables. A Rust port that uses a deterministic or attacker-controllable hasher for JSON object keys can still degrade to worst-case CPU behavior during parse, lookup, insert, or compare operations.",
+      "porting_guidance": "Use a randomized, collision-resistant default hasher for object member maps, keep any fast deterministic hasher opt-in only, and add adversarial tests with many colliding keys. If insertion order matters, pair that requirement with an order-preserving map implementation whose default hasher is still randomized.",
+      "local_source_note": "The imported json-c source already salts string hashing with a random seed in original/linkhash.c, which indicates that upstream treated hash randomization as the fix direction.",
+      "source_urls": [
+        "https://security-tracker.debian.org/tracker/CVE-2013-6371",
+        "https://ubuntu.com/security/CVE-2013-6371",
+        "https://github.com/json-c/json-c/commit/64e36901a0614bf64a19bc3396469c66dcd0b015"
+      ]
+    }
+  ],
+  "excluded_cves": [
+    {
+      "cve_id": "CVE-2013-6370",
+      "reason": "Excluded because it is a primary memory-corruption bug: a buffer overflow in printbuf APIs.",
+      "note": "Rust's ownership and bounds checks should eliminate this specific bug class, though output-buffer growth logic still deserves ordinary correctness tests."
+    },
+    {
+      "cve_id": "CVE-2020-12762",
+      "reason": "Excluded because the assigned CVE is primarily a memory-corruption issue: integer overflow leading to an out-of-bounds write in printbuf_memappend.",
+      "note": "The Rust port should still use checked arithmetic for buffer sizing, but this record is not part of the non-memory-corruption set."
+    },
+    {
+      "cve_id": "CVE-2021-32292",
+      "reason": "Excluded because it is a stack-buffer-overflow in the auxiliary sample program json_parse.",
+      "note": "This is both memory-corruption and outside the core library API surface targeted by the Rust port."
+    }
+  ]
+}
