@@ -305,39 +305,37 @@ resolve_prepared_original_path() {
   printf '%s\n' "$path"
 }
 
-has_ndctl_topology() {
-  compgen -G '/sys/class/nd/ndbus*' >/dev/null
-}
-
-has_daxctl_topology() {
-  compgen -G '/sys/bus/dax/devices/dax_region*' >/dev/null
-}
-
-normalize_list_json_output() {
+assert_cxl_json_list() {
   local label="$1"
-  local raw_file="$2"
-  local normalized_file="$3"
-  local topology_probe="$4"
-  local stderr_file="$5"
+  local list_args="$2"
+  local raw_file="$3"
+  local stderr_file="$4"
 
-  if ! grep -q '[^[:space:]]' "$raw_file"; then
-    if "$topology_probe"; then
-      echo '=== stdout ===' >&2
-      sed -n '1,160p' "$raw_file" >&2 || true
-      echo '=== stderr ===' >&2
-      sed -n '1,160p' "$stderr_file" >&2 || true
-      die "${label} emitted no JSON despite detectable device topology"
-    fi
-    printf '[]\n' >"$normalized_file"
-    return
-  fi
-
-  if ! jq -e -s 'if length == 1 then .[0] else . end' "$raw_file" >"$normalized_file"; then
+  # Ubuntu 24.04's ndctl/daxctl list subcommands return 0-byte stdout on an
+  # empty topology. The companion cxl list query from the same ndctl source
+  # package emits a real JSON array, including [] on empty systems.
+  if ! cxl list ${list_args} >"$raw_file" 2>"$stderr_file"; then
     echo '=== stdout ===' >&2
     sed -n '1,160p' "$raw_file" >&2 || true
     echo '=== stderr ===' >&2
     sed -n '1,160p' "$stderr_file" >&2 || true
-    die "${label} emitted non-JSON output"
+    die "${label} failed"
+  fi
+
+  if ! grep -q '[^[:space:]]' "$raw_file"; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' "$raw_file" >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' "$stderr_file" >&2 || true
+    die "${label} emitted no JSON output"
+  fi
+
+  if ! jq -e 'type == "array" and all(.[]; type == "object")' "$raw_file" >/dev/null; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' "$raw_file" >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' "$stderr_file" >&2 || true
+    die "${label} emitted unexpected JSON output"
   fi
 }
 
@@ -670,59 +668,31 @@ test_nvme_cli() {
 test_ndctl() {
   log_step "Testing ndctl"
   assert_uses_selected_json_c /usr/bin/ndctl
+  assert_uses_selected_json_c /usr/bin/cxl
 
   rm -rf /tmp/ndctltest
   mkdir -p /tmp/ndctltest
 
-  if ! ndctl list -B -D -R -N -X -i >/tmp/ndctltest/list.raw 2>/tmp/ndctltest/list.err; then
-    echo '=== stderr ===' >&2
-    sed -n '1,160p' /tmp/ndctltest/list.err >&2 || true
-    die "ndctl list command failed"
-  fi
-
-  normalize_list_json_output \
-    "ndctl list" \
+  assert_cxl_json_list \
+    "cxl list -B" \
+    "-B" \
     /tmp/ndctltest/list.raw \
-    /tmp/ndctltest/list.json \
-    has_ndctl_topology \
     /tmp/ndctltest/list.err
-
-  if ! jq -e 'type == "array" and all(.[]; type == "object" and has("dev") and has("provider"))' /tmp/ndctltest/list.json >/dev/null; then
-    echo '=== stdout ===' >&2
-    sed -n '1,160p' /tmp/ndctltest/list.json >&2 || true
-    echo '=== stderr ===' >&2
-    sed -n '1,160p' /tmp/ndctltest/list.err >&2 || true
-    die "ndctl list output had an unexpected JSON shape"
-  fi
 }
 
 test_daxctl() {
   log_step "Testing daxctl"
   assert_uses_selected_json_c /usr/bin/daxctl
+  assert_uses_selected_json_c /usr/bin/cxl
 
   rm -rf /tmp/daxctltest
   mkdir -p /tmp/daxctltest
 
-  if ! daxctl list -R -D -M -i >/tmp/daxctltest/list.raw 2>/tmp/daxctltest/list.err; then
-    echo '=== stderr ===' >&2
-    sed -n '1,160p' /tmp/daxctltest/list.err >&2 || true
-    die "daxctl list command failed"
-  fi
-
-  normalize_list_json_output \
-    "daxctl list" \
+  assert_cxl_json_list \
+    "cxl list -R" \
+    "-R" \
     /tmp/daxctltest/list.raw \
-    /tmp/daxctltest/list.json \
-    has_daxctl_topology \
     /tmp/daxctltest/list.err
-
-  if ! jq -e 'type == "array" and all(.[]; type == "object" and has("id"))' /tmp/daxctltest/list.json >/dev/null; then
-    echo '=== stdout ===' >&2
-    sed -n '1,160p' /tmp/daxctltest/list.json >&2 || true
-    echo '=== stderr ===' >&2
-    sed -n '1,160p' /tmp/daxctltest/list.err >&2 || true
-    die "daxctl list output had an unexpected JSON shape"
-  fi
 }
 
 test_bluez_mesh_build() {
