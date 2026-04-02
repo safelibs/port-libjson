@@ -5,6 +5,7 @@ pub use std::os::raw::{c_char, c_double, c_int, c_longlong, c_uint, c_ulong, c_u
 pub type size_t = usize;
 pub type int32_t = i32;
 pub type int64_t = i64;
+pub type uint32_t = u32;
 pub type uint64_t = u64;
 pub type json_bool = c_int;
 pub type json_type = c_int;

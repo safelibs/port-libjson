@@ -317,15 +317,19 @@ add_custom_command(
         ${PROJECT_SOURCE_DIR}/src/arraylist.rs
         ${PROJECT_SOURCE_DIR}/src/debug.rs
         ${PROJECT_SOURCE_DIR}/src/errors.rs
+        ${PROJECT_SOURCE_DIR}/src/iterators.rs
         ${PROJECT_SOURCE_DIR}/src/linkhash.rs
         ${PROJECT_SOURCE_DIR}/src/mini_json.rs
         ${PROJECT_SOURCE_DIR}/src/numeric.rs
+        ${PROJECT_SOURCE_DIR}/src/object.rs
         ${PROJECT_SOURCE_DIR}/src/printbuf.rs
         ${PROJECT_SOURCE_DIR}/src/random_seed.rs
+        ${PROJECT_SOURCE_DIR}/src/serializer.rs
         ${PROJECT_SOURCE_DIR}/src/strerror.rs
         ${PROJECT_SOURCE_DIR}/src/stubs.rs
         ${PROJECT_SOURCE_DIR}/src/variadic.c
         ${PROJECT_SOURCE_DIR}/src/version.rs
+        ${PROJECT_SOURCE_DIR}/src/visit.rs
         ${PROJECT_SOURCE_DIR}/tools/collect-native-static-libs.sh
     VERBATIM
 )
@@ -456,6 +460,22 @@ install(FILES ${PROJECT_BINARY_DIR}/json-c.pc DESTINATION "${INSTALL_PKGCONFIG_D
 install(FILES ${JSON_C_PUBLIC_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/json-c)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
+    set(OBJECT_CORE_TEST_NAMES
+        test_compare
+        test_deep_copy
+        test_double_serializer
+        test_int_add
+        test_int_get
+        test_null
+        test_object_iterator
+        test_set_serializer
+        test_set_value
+        test_visit
+    )
+    string(REPLACE ";" "|" OBJECT_CORE_TEST_REGEX_BODY "${OBJECT_CORE_TEST_NAMES}")
+    set(OBJECT_CORE_TEST_REGEX "^(${OBJECT_CORE_TEST_REGEX_BODY})$")
+    string(REPLACE ";" " " OBJECT_CORE_TEST_NAMES_SH "${OBJECT_CORE_TEST_NAMES}")
+
     add_executable(foundation_smoke tests/foundation/foundation_smoke.c)
     add_dependencies(foundation_smoke json-c-static)
     target_include_directories(foundation_smoke
@@ -481,6 +501,41 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
     set_tests_properties(abi_layout PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
     add_subdirectory(tests/upstream ${PROJECT_BINARY_DIR}/tests)
+
+    add_test(
+        NAME verify_03_object_suite
+        COMMAND ${PROJECT_SOURCE_DIR}/tools/run-upstream-tests.sh
+                ${PROJECT_BINARY_DIR}
+                ${OBJECT_CORE_TEST_REGEX}
+    )
+    set_tests_properties(
+        verify_03_object_suite
+        PROPERTIES
+            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    )
+
+    add_test(
+        NAME verify_03_object_relink
+        COMMAND ${CMAKE_COMMAND} -E env
+                PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+                PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}
+                OBJECT_CORE_TEST_NAMES=${OBJECT_CORE_TEST_NAMES_SH}
+                bash -lc
+                "set -euo pipefail; \
+                 \"$PROJECT_SOURCE_DIR/tools/relink-original-tests.sh\" \
+                     \"$PROJECT_BINARY_DIR/libjson-c.so.5.3.0\" \
+                     \"$PROJECT_BINARY_DIR/relinked/tests\"; \
+                 for test_name in $OBJECT_CORE_TEST_NAMES; do \
+                     srcdir=\"$PROJECT_SOURCE_DIR/tests/upstream\" \
+                     top_builddir=\"$PROJECT_BINARY_DIR/relinked\" \
+                     \"$PROJECT_SOURCE_DIR/tests/upstream/$test_name.test\"; \
+                 done"
+    )
+    set_tests_properties(
+        verify_03_object_relink
+        PROPERTIES
+            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    )
 endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_APPS)
