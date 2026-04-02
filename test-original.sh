@@ -7,10 +7,11 @@ MODE="safe-package"
 
 usage() {
   cat <<'EOF'
-usage: test-original.sh [--mode safe-package|original-source]
+usage: test-original.sh [--mode safe|safe-package|original-source]
 
-safe-package is the default compatibility target. Use original-source only for
-baseline comparisons against a /usr/local install.
+safe-package is the default compatibility target; safe is accepted as a
+backward-compatible alias. Use original-source only for baseline comparisons
+against a /usr/local install.
 EOF
 }
 
@@ -31,6 +32,12 @@ while (($#)); do
       ;;
   esac
 done
+
+case "$MODE" in
+  safe)
+    MODE="safe-package"
+    ;;
+esac
 
 case "$MODE" in
   safe-package|original-source)
@@ -122,6 +129,12 @@ ARTIFACT_DIR=/tmp/libjson-safe-artifacts
 JSON_C_LIBDIR=""
 JSON_C_RUNTIME_LIB=""
 JSON_C_MODE_LABEL=""
+
+case "$MODE" in
+  safe)
+    MODE="safe-package"
+    ;;
+esac
 
 log_step() {
   printf '\n==> %s\n' "$1"
