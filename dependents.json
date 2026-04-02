@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_on": "2026-04-01",
+  "generated_on": "2026-04-02",
   "ubuntu_release": "24.04 LTS (noble)",
   "library": "json-c",
   "metadata_source": "Local apt-cache binary and source metadata from the Ubuntu 24.04 repositories configured on this system, plus inspected Ubuntu source package contents unpacked under /tmp for feature verification.",
@@ -114,6 +114,50 @@
       "evidence": [
         "Ubuntu package metadata shows nvme-cli Depends on libjson-c5 and the nvme-cli source package Build-Depends on libjson-c-dev.",
         "nvme-print-json.c builds JSON responses for many nvme subcommands, and util/json.c provides json-c-based numeric serialization helpers."
+      ]
+    },
+    {
+      "name": "ndctl",
+      "source_package": "ndctl",
+      "category": "persistent memory management CLI",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "ndctl",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "ndctl",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Lists NVDIMM buses, DIMMs, regions, namespaces, firmware state, and health information as JSON for management and diagnostics.",
+      "evidence": [
+        "Ubuntu package metadata shows ndctl Depends on libjson-c5 and the ndctl source package Build-Depends on libjson-c-dev.",
+        "Documentation/ndctl/ndctl-list.txt says ndctl dumps NVDIMM topology and attributes in JSON, and ndctl/list.c plus ndctl/json.c build the JSON output for buses, DIMMs, regions, namespaces, firmware, and media-error reporting."
+      ]
+    },
+    {
+      "name": "daxctl",
+      "source_package": "ndctl",
+      "category": "Device-DAX management CLI",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "daxctl",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "ndctl",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Lists Device-DAX regions, devices, and mappings as JSON for memory-device management and diagnostics.",
+      "evidence": [
+        "Ubuntu package metadata shows daxctl Depends on libjson-c5 and the ndctl source package Build-Depends on libjson-c-dev.",
+        "Documentation/daxctl/daxctl-list.txt says daxctl dumps Device-DAX regions, devices, and attributes in JSON, and daxctl/list.c plus daxctl/json.c build the region, device, and mapping JSON output."
       ]
     },
     {

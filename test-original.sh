@@ -94,6 +94,7 @@ RUN sed 's/^Types: deb$/Types: deb-src/' /etc/apt/sources.list.d/ubuntu.sources 
       check \
       cmake \
       curl \
+      daxctl \
       debhelper \
       dbus \
       dpkg-dev \
@@ -112,6 +113,7 @@ RUN sed 's/^Types: deb$/Types: deb-src/' /etc/apt/sources.list.d/ubuntu.sources 
       libreadline-dev \
       libtool \
       libudev-dev \
+      ndctl \
       nvme-cli \
       pd-purest-json \
       pkg-config \
@@ -180,7 +182,7 @@ die() {
 
 assert_dependents_inventory() {
   local expected actual
-  expected=$'BIND 9\nFRRouting\nSway\nGDAL\nnvme-cli\nBlueZ Mesh Daemon\nsyslog-ng\nttyd\ntlog\nPuREST JSON for Pure Data'
+  expected=$'BIND 9\nFRRouting\nSway\nGDAL\nnvme-cli\nndctl\ndaxctl\nBlueZ Mesh Daemon\nsyslog-ng\nttyd\ntlog\nPuREST JSON for Pure Data'
   actual="$(jq -r '.dependents[].name' "$ROOT/dependents.json")"
   if [[ "$actual" != "$expected" ]]; then
     echo "dependents.json does not match the expected dependent matrix" >&2
@@ -218,6 +220,11 @@ setup_original_json_env() {
 
   JSON_C_LIBDIR="$(pkg-config --variable=libdir json-c)"
   [[ -d "$JSON_C_LIBDIR" ]] || die "pkg-config reported a missing libdir: ${JSON_C_LIBDIR}"
+  [[ "$JSON_C_LIBDIR" == /usr/local/* ]] || die "original-source pkg-config resolved the distro json-c libdir: ${JSON_C_LIBDIR}"
+
+  local json_c_includedir
+  json_c_includedir="$(pkg-config --variable=includedir json-c)"
+  [[ "$json_c_includedir" == /usr/local/* ]] || die "original-source pkg-config resolved the distro json-c includedir: ${json_c_includedir}"
 
   JSON_C_RUNTIME_LIB="$(find "$JSON_C_LIBDIR" -maxdepth 1 -type f -name 'libjson-c.so.5*' | sort | head -n 1)"
   [[ -n "$JSON_C_RUNTIME_LIB" ]] || die "could not locate the original-source libjson-c shared object under ${JSON_C_LIBDIR}"
@@ -262,13 +269,165 @@ assert_uses_selected_json_c() {
   fi
 }
 
-build_original_json_c() {
-  log_step "Building original json-c baseline into /usr/local"
+collect_original_install_headers() {
+  awk '
+    index($0, "file(INSTALL DESTINATION \"/usr/local/include/json-c\" TYPE FILE FILES") {
+      in_headers = 1
+      next
+    }
+    in_headers && $0 ~ /^[[:space:]]*\)$/ {
+      exit
+    }
+    in_headers {
+      while (match($0, /"[^"]+"/)) {
+        print substr($0, RSTART + 1, RLENGTH - 2)
+        $0 = substr($0, RSTART + RLENGTH)
+      }
+    }
+  ' "$ROOT/original/build/cmake_install.cmake"
+}
 
-  cmake -S "$ROOT/original" -B /tmp/json-c-build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
-  cmake --build /tmp/json-c-build -j"$(nproc)"
-  cmake --install /tmp/json-c-build
+resolve_prepared_original_path() {
+  local path="$1"
+
+  if [[ -e "$path" ]]; then
+    printf '%s\n' "$path"
+    return
+  fi
+
+  case "$path" in
+    */original/*)
+      printf '%s/original/%s\n' "$ROOT" "${path#*/original/}"
+      return
+      ;;
+  esac
+
+  printf '%s\n' "$path"
+}
+
+has_ndctl_topology() {
+  compgen -G '/sys/class/nd/ndbus*' >/dev/null
+}
+
+has_daxctl_topology() {
+  compgen -G '/sys/bus/dax/devices/dax_region*' >/dev/null
+}
+
+normalize_list_json_output() {
+  local label="$1"
+  local raw_file="$2"
+  local normalized_file="$3"
+  local topology_probe="$4"
+  local stderr_file="$5"
+
+  if ! grep -q '[^[:space:]]' "$raw_file"; then
+    if "$topology_probe"; then
+      echo '=== stdout ===' >&2
+      sed -n '1,160p' "$raw_file" >&2 || true
+      echo '=== stderr ===' >&2
+      sed -n '1,160p' "$stderr_file" >&2 || true
+      die "${label} emitted no JSON despite detectable device topology"
+    fi
+    printf '[]\n' >"$normalized_file"
+    return
+  fi
+
+  if ! jq -e -s 'if length == 1 then .[0] else . end' "$raw_file" >"$normalized_file"; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' "$raw_file" >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' "$stderr_file" >&2 || true
+    die "${label} emitted non-JSON output"
+  fi
+}
+
+stage_original_json_c() {
+  log_step "Staging prepared original json-c baseline into /usr/local"
+
+  local manifest="$ROOT/original/build/cmake_install.cmake"
+  local export_root="$ROOT/original/build/CMakeFiles/Export"
+  local stage_root=/tmp/json-c-original-install-root
+  local stage_usr_local="${stage_root}/usr/local"
+  local export_dir
+  local export_file
+  local manifest_header
+  local -a export_dirs=()
+  local -a export_files=()
+  local -a manifest_headers=()
+  local -a install_headers=()
+  local -a required_files=(
+    "$ROOT/original/build/libjson-c.so"
+    "$ROOT/original/build/libjson-c.so.5"
+    "$ROOT/original/build/libjson-c.so.5.3.0"
+    "$ROOT/original/build/libjson-c.a"
+    "$ROOT/original/build/json-c.pc"
+    "$ROOT/original/build/json-c-config.cmake"
+    "$ROOT/original/build/json.h"
+    "$ROOT/original/build/json_config.h"
+  )
+
+  [[ -f "$manifest" ]] || die "missing prepared upstream install manifest: ${manifest}"
+  [[ -d "$export_root" ]] || die "missing prepared upstream export root: ${export_root}"
+
+  mapfile -t export_dirs < <(find "$export_root" -mindepth 1 -maxdepth 1 -type d | sort)
+  if ((${#export_dirs[@]} != 1)); then
+    printf 'expected exactly one prepared upstream export directory under %s, found %d\n' "$export_root" "${#export_dirs[@]}" >&2
+    printf '%s\n' "${export_dirs[@]}" >&2
+    exit 1
+  fi
+  export_dir="${export_dirs[0]}"
+
+  mapfile -t export_files < <(find "$export_dir" -mindepth 1 -maxdepth 1 -type f -name 'json-c-targets*.cmake' | sort)
+  ((${#export_files[@]} >= 1)) || die "prepared upstream export directory does not contain json-c-targets*.cmake files: ${export_dir}"
+
+  mapfile -t manifest_headers < <(collect_original_install_headers)
+  ((${#manifest_headers[@]} >= 1)) || die "failed to read the prepared upstream header manifest from ${manifest}"
+  for manifest_header in "${manifest_headers[@]}"; do
+    install_headers+=("$(resolve_prepared_original_path "$manifest_header")")
+  done
+
+  for required_file in "${required_files[@]}"; do
+    [[ -e "$required_file" ]] || die "missing prepared upstream artifact: ${required_file}"
+  done
+  for install_header in "${install_headers[@]}"; do
+    [[ -f "$install_header" ]] || die "prepared upstream header listed in ${manifest} is missing: ${install_header}"
+  done
+
+  rm -rf "$stage_root"
+  mkdir -p \
+    "$stage_usr_local/lib/pkgconfig" \
+    "$stage_usr_local/lib/cmake/json-c" \
+    "$stage_usr_local/include/json-c"
+
+  cp -a \
+    "$ROOT/original/build/libjson-c.so" \
+    "$ROOT/original/build/libjson-c.so.5" \
+    "$ROOT/original/build/libjson-c.so.5.3.0" \
+    "$ROOT/original/build/libjson-c.a" \
+    "$stage_usr_local/lib/"
+  cp -a "$ROOT/original/build/json-c.pc" "$stage_usr_local/lib/pkgconfig/"
+  cp -a "$ROOT/original/build/json-c-config.cmake" "$stage_usr_local/lib/cmake/json-c/"
+  cp -a "$export_dir/." "$stage_usr_local/lib/cmake/json-c/"
+  cp -a "${install_headers[@]}" "$stage_usr_local/include/json-c/"
+
+  rm -f \
+    /usr/local/lib/libjson-c.so \
+    /usr/local/lib/libjson-c.so.5 \
+    /usr/local/lib/libjson-c.so.5.3.0 \
+    /usr/local/lib/libjson-c.a \
+    /usr/local/lib/pkgconfig/json-c.pc
+  rm -rf /usr/local/lib/cmake/json-c /usr/local/include/json-c
+  mkdir -p /usr/local/lib /usr/local/lib/pkgconfig /usr/local/lib/cmake /usr/local/include
+
+  cp -a "$stage_usr_local/lib/." /usr/local/lib/
+  cp -a "$stage_usr_local/include/." /usr/local/include/
   ldconfig
+
+  cmp -s "$ROOT/original/build/json-c.pc" /usr/local/lib/pkgconfig/json-c.pc || die "staged pkg-config metadata does not match the prepared upstream json-c.pc"
+  cmp -s "$ROOT/original/build/json-c-config.cmake" /usr/local/lib/cmake/json-c/json-c-config.cmake || die "staged CMake config does not match the prepared upstream json-c-config.cmake"
+  for export_file in "${export_files[@]}"; do
+    cmp -s "$export_file" "/usr/local/lib/cmake/json-c/$(basename "$export_file")" || die "staged export file does not match the prepared upstream $(basename "$export_file")"
+  done
 
   setup_original_json_env
 
@@ -508,6 +667,64 @@ test_nvme_cli() {
   jq -e 'type == "array"' /tmp/nvmetest/subsys.json >/dev/null
 }
 
+test_ndctl() {
+  log_step "Testing ndctl"
+  assert_uses_selected_json_c /usr/bin/ndctl
+
+  rm -rf /tmp/ndctltest
+  mkdir -p /tmp/ndctltest
+
+  if ! ndctl list -B -D -R -N -X -i >/tmp/ndctltest/list.raw 2>/tmp/ndctltest/list.err; then
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' /tmp/ndctltest/list.err >&2 || true
+    die "ndctl list command failed"
+  fi
+
+  normalize_list_json_output \
+    "ndctl list" \
+    /tmp/ndctltest/list.raw \
+    /tmp/ndctltest/list.json \
+    has_ndctl_topology \
+    /tmp/ndctltest/list.err
+
+  if ! jq -e 'type == "array" and all(.[]; type == "object" and has("dev") and has("provider"))' /tmp/ndctltest/list.json >/dev/null; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' /tmp/ndctltest/list.json >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' /tmp/ndctltest/list.err >&2 || true
+    die "ndctl list output had an unexpected JSON shape"
+  fi
+}
+
+test_daxctl() {
+  log_step "Testing daxctl"
+  assert_uses_selected_json_c /usr/bin/daxctl
+
+  rm -rf /tmp/daxctltest
+  mkdir -p /tmp/daxctltest
+
+  if ! daxctl list -R -D -M -i >/tmp/daxctltest/list.raw 2>/tmp/daxctltest/list.err; then
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' /tmp/daxctltest/list.err >&2 || true
+    die "daxctl list command failed"
+  fi
+
+  normalize_list_json_output \
+    "daxctl list" \
+    /tmp/daxctltest/list.raw \
+    /tmp/daxctltest/list.json \
+    has_daxctl_topology \
+    /tmp/daxctltest/list.err
+
+  if ! jq -e 'type == "array" and all(.[]; type == "object" and has("id"))' /tmp/daxctltest/list.json >/dev/null; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' /tmp/daxctltest/list.json >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' /tmp/daxctltest/list.err >&2 || true
+    die "daxctl list output had an unexpected JSON shape"
+  fi
+}
+
 test_bluez_mesh_build() {
   log_step "Building BlueZ mesh targets"
 
@@ -720,7 +937,7 @@ case "$MODE" in
     build_safe_packages
     ;;
   original-source)
-    build_original_json_c
+    stage_original_json_c
     ;;
   *)
     die "unsupported mode inside container: $MODE"
@@ -731,6 +948,8 @@ test_frr
 test_sway
 test_gdal
 test_nvme_cli
+test_ndctl
+test_daxctl
 test_bluez_mesh_build
 test_syslog_ng
 test_ttyd
