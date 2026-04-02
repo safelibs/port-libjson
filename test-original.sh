@@ -324,14 +324,234 @@ assert_lists_command() {
   fi
 }
 
-assert_cxl_json_list() {
-  local label="$1"
-  shift
-  local raw_file="$1"
-  local stderr_file="$2"
-  shift 2
+build_mock_sysfs_preload() {
+  local workdir="$1"
 
-  if ! cxl "$@" >"$raw_file" 2>"$stderr_file"; then
+  cat >"$workdir/mockfs.c" <<'EOF'
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+static const char *mock_root(void) {
+  static const char *root;
+  static int initialized;
+  if (!initialized) {
+    root = getenv("MOCK_SYSFS_ROOT");
+    initialized = 1;
+  }
+  return root;
+}
+
+static bool map_path(const char *path, char *buffer, size_t buffer_size) {
+  const char *root = mock_root();
+
+  if (!root || !path || path[0] != '/' || strncmp(path, "/sys", 4) != 0) {
+    return false;
+  }
+
+  return snprintf(buffer, buffer_size, "%s%s", root, path) < (int) buffer_size;
+}
+
+int open(const char *pathname, int flags, ...) {
+  static int (*real_open)(const char *, int, ...);
+  char mapped[PATH_MAX];
+  const char *target = pathname;
+  va_list args;
+  mode_t mode = 0;
+
+  if (!real_open) {
+    real_open = dlsym(RTLD_NEXT, "open");
+  }
+  if (map_path(pathname, mapped, sizeof(mapped))) {
+    target = mapped;
+  }
+
+  if (flags & O_CREAT) {
+    va_start(args, flags);
+    mode = va_arg(args, mode_t);
+    va_end(args);
+    return real_open(target, flags, mode);
+  }
+  return real_open(target, flags);
+}
+
+int open64(const char *pathname, int flags, ...) {
+  static int (*real_open64)(const char *, int, ...);
+  char mapped[PATH_MAX];
+  const char *target = pathname;
+  va_list args;
+  mode_t mode = 0;
+
+  if (!real_open64) {
+    real_open64 = dlsym(RTLD_NEXT, "open64");
+  }
+  if (map_path(pathname, mapped, sizeof(mapped))) {
+    target = mapped;
+  }
+
+  if (flags & O_CREAT) {
+    va_start(args, flags);
+    mode = va_arg(args, mode_t);
+    va_end(args);
+    return real_open64(target, flags, mode);
+  }
+  return real_open64(target, flags);
+}
+
+DIR *opendir(const char *name) {
+  static DIR *(*real_opendir)(const char *);
+  char mapped[PATH_MAX];
+  const char *target = name;
+
+  if (!real_opendir) {
+    real_opendir = dlsym(RTLD_NEXT, "opendir");
+  }
+  if (map_path(name, mapped, sizeof(mapped))) {
+    target = mapped;
+  }
+
+  return real_opendir(target);
+}
+
+int stat(const char *path, struct stat *st) {
+  static int (*real_stat)(const char *, struct stat *);
+  char mapped[PATH_MAX];
+  const char *target = path;
+
+  if (!real_stat) {
+    real_stat = dlsym(RTLD_NEXT, "stat");
+  }
+  if (map_path(path, mapped, sizeof(mapped))) {
+    target = mapped;
+  }
+
+  return real_stat(target, st);
+}
+
+int lstat(const char *path, struct stat *st) {
+  static int (*real_lstat)(const char *, struct stat *);
+  char mapped[PATH_MAX];
+  const char *target = path;
+
+  if (!real_lstat) {
+    real_lstat = dlsym(RTLD_NEXT, "lstat");
+  }
+  if (map_path(path, mapped, sizeof(mapped))) {
+    target = mapped;
+  }
+
+  return real_lstat(target, st);
+}
+
+int access(const char *path, int mode) {
+  static int (*real_access)(const char *, int);
+  char mapped[PATH_MAX];
+  const char *target = path;
+
+  if (!real_access) {
+    real_access = dlsym(RTLD_NEXT, "access");
+  }
+  if (map_path(path, mapped, sizeof(mapped))) {
+    target = mapped;
+  }
+
+  return real_access(target, mode);
+}
+
+char *realpath(const char *path, char *resolved_path) {
+  static char *(*real_realpath)(const char *, char *);
+  char mapped[PATH_MAX];
+  char *result;
+  const char *target = path;
+  const char *root;
+  size_t root_len;
+
+  if (!real_realpath) {
+    real_realpath = dlsym(RTLD_NEXT, "realpath");
+  }
+  if (map_path(path, mapped, sizeof(mapped))) {
+    target = mapped;
+  }
+
+  result = real_realpath(target, resolved_path);
+  if (!result) {
+    return NULL;
+  }
+
+  root = mock_root();
+  root_len = root ? strlen(root) : 0;
+  if (root && strncmp(result, root, root_len) == 0) {
+    memmove(result, result + root_len, strlen(result + root_len) + 1);
+    if (result[0] == '\0') {
+      result[0] = '/';
+      result[1] = '\0';
+    }
+  }
+
+  return result;
+}
+EOF
+
+  if ! cc -shared -fPIC -O2 -Wall -Wextra -o "$workdir/mockfs.so" "$workdir/mockfs.c" -ldl >"$workdir/mockfs.build.out" 2>"$workdir/mockfs.build.err"; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' "$workdir/mockfs.build.out" >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' "$workdir/mockfs.build.err" >&2 || true
+    die "failed to build mock sysfs preload shim"
+  fi
+}
+
+prepare_ndctl_mock_sysfs() {
+  local mock_root="$1"
+
+  mkdir -p \
+    "$mock_root/sys/class/nd/ndctl0/device" \
+    "$mock_root/sys/dev/char/1:1"
+
+  printf '1:1\n' >"$mock_root/sys/class/nd/ndctl0/dev"
+  printf 'nfit_test.0\n' >"$mock_root/sys/class/nd/ndctl0/device/provider"
+  printf 'bus dimm region namespace\n' >"$mock_root/sys/class/nd/ndctl0/device/commands"
+  printf '0\n' >"$mock_root/sys/class/nd/ndctl0/device/wait_probe"
+
+  ln -s ../../../class/nd/ndctl0 "$mock_root/sys/dev/char/1:1/device"
+}
+
+prepare_daxctl_mock_sysfs() {
+  local mock_root="$1"
+
+  mkdir -p \
+    "$mock_root/sys/devices/platform/mock/region0/dax_region" \
+    "$mock_root/sys/devices/platform/mock/region0/dax/dax0.0" \
+    "$mock_root/sys/devices/platform/mock/region0/dax0.0" \
+    "$mock_root/sys/class/dax" \
+    "$mock_root/sys/bus/dax/devices"
+
+  printf '4096\n' >"$mock_root/sys/devices/platform/mock/region0/dax_region/size"
+  printf '4096\n' >"$mock_root/sys/devices/platform/mock/region0/dax_region/align"
+
+  ln -s ../../devices/platform/mock/region0/dax/dax0.0 "$mock_root/sys/class/dax/dax0.0"
+  ln -s ../../../devices/platform/mock/region0/dax0.0 "$mock_root/sys/bus/dax/devices/dax0.0"
+}
+
+assert_mock_sysfs_json_list() {
+  local label="$1"
+  local binary="$2"
+  local preload_lib="$3"
+  local mock_root="$4"
+  local raw_file="$5"
+  local stderr_file="$6"
+  shift 6
+
+  if ! LD_PRELOAD="$preload_lib${LD_PRELOAD:+:$LD_PRELOAD}" MOCK_SYSFS_ROOT="$mock_root" "$binary" "$@" >"$raw_file" 2>"$stderr_file"; then
     echo '=== stdout ===' >&2
     sed -n '1,160p' "$raw_file" >&2 || true
     echo '=== stderr ===' >&2
@@ -677,10 +897,9 @@ test_nvme_cli() {
 test_ndctl() {
   log_step "Testing ndctl"
   assert_uses_selected_json_c /usr/bin/ndctl
-  assert_uses_selected_json_c /usr/bin/cxl
 
   rm -rf /tmp/ndctltest
-  mkdir -p /tmp/ndctltest
+  mkdir -p /tmp/ndctltest/root
 
   assert_lists_command \
     "ndctl" \
@@ -688,36 +907,38 @@ test_ndctl() {
     list \
     /tmp/ndctltest/list-cmds.txt
 
-  assert_cxl_json_list \
-    "cxl list -B" \
+  build_mock_sysfs_preload /tmp/ndctltest
+  prepare_ndctl_mock_sysfs /tmp/ndctltest/root
+
+  assert_mock_sysfs_json_list \
+    "ndctl list -B" \
+    /usr/bin/ndctl \
+    /tmp/ndctltest/mockfs.so \
+    /tmp/ndctltest/root \
     /tmp/ndctltest/list.raw \
     /tmp/ndctltest/list.err \
     list -B
 
   if ! jq -e '
     type == "array"
-    and (
-      length == 0
-      or all(.[]; type == "object"
-        and (.provider | type == "string")
-        and (.dev | type == "string"))
-    )
+    and length == 1
+    and .[0].provider == "nfit_test.0"
+    and .[0].dev == "ndctl0"
   ' /tmp/ndctltest/list.raw >/dev/null; then
     echo '=== stdout ===' >&2
     sed -n '1,160p' /tmp/ndctltest/list.raw >&2 || true
     echo '=== stderr ===' >&2
     sed -n '1,160p' /tmp/ndctltest/list.err >&2 || true
-    die "cxl list -B emitted unexpected JSON output"
+    die "ndctl list -B emitted unexpected JSON output"
   fi
 }
 
 test_daxctl() {
   log_step "Testing daxctl"
   assert_uses_selected_json_c /usr/bin/daxctl
-  assert_uses_selected_json_c /usr/bin/cxl
 
   rm -rf /tmp/daxctltest
-  mkdir -p /tmp/daxctltest
+  mkdir -p /tmp/daxctltest/root
 
   assert_lists_command \
     "daxctl" \
@@ -725,26 +946,31 @@ test_daxctl() {
     list \
     /tmp/daxctltest/list-cmds.txt
 
-  assert_cxl_json_list \
-    "cxl list -R" \
+  build_mock_sysfs_preload /tmp/daxctltest
+  prepare_daxctl_mock_sysfs /tmp/daxctltest/root
+
+  assert_mock_sysfs_json_list \
+    "daxctl list -R" \
+    /usr/bin/daxctl \
+    /tmp/daxctltest/mockfs.so \
+    /tmp/daxctltest/root \
     /tmp/daxctltest/list.raw \
     /tmp/daxctltest/list.err \
     list -R
 
   if ! jq -e '
     type == "array"
-    and (
-      length == 0
-      or all(.[]; type == "object"
-        and (.id | type == "number")
-        and (.path | type == "string"))
-    )
+    and length == 1
+    and .[0].id == 0
+    and .[0].path == "/platform/mock/region0"
+    and .[0].size == 4096
+    and .[0].align == 4096
   ' /tmp/daxctltest/list.raw >/dev/null; then
     echo '=== stdout ===' >&2
     sed -n '1,160p' /tmp/daxctltest/list.raw >&2 || true
     echo '=== stderr ===' >&2
     sed -n '1,160p' /tmp/daxctltest/list.err >&2 || true
-    die "cxl list -R emitted unexpected JSON output"
+    die "daxctl list -R emitted unexpected JSON output"
   fi
 }
 
