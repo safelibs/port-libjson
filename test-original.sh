@@ -1149,11 +1149,21 @@ compile_bind9() {
   run_compile_step \
     "configure BIND 9" \
     "${log_root}/configure.log" \
-    bash -lc "cd '$srcdir' && ./configure --libdir=/usr/lib/${host_multiarch} --sysconfdir=/etc/bind --localstatedir=/ --enable-largefile --enable-shared --disable-static --with-openssl=/usr --with-gssapi=yes --with-libidn2 --with-json-c --with-lmdb=/usr --with-maxminddb"
+    bash -lc "cd '$srcdir' && ./configure --libdir=/usr/lib/${host_multiarch} --sysconfdir=/etc/bind --localstatedir=/ --enable-largefile --enable-shared --disable-static --with-openssl=/usr --with-gssapi=yes --with-libidn2 --with-json-c --with-lmdb=/usr --with-maxminddb --with-readline=libedit"
+  run_compile_step \
+    "build BIND 9 libraries" \
+    "${log_root}/build-libs.log" \
+    bash -lc "cd '$srcdir' && make -C lib -j'$(nproc)' V=1 LIBS=\"\$(pkg-config --libs libedit)\" all-recursive"
+  run_compile_step \
+    "generate BIND 9 built sources" \
+    "${log_root}/built-sources.log" \
+    bash -lc "cd '$srcdir' && make -j1 V=1 bind.keys.h"
   run_compile_step \
     "build BIND 9 named" \
     "${log_root}/build.log" \
-    bash -lc "cd '$srcdir' && make -j'$(nproc)' V=1 all"
+    bash -lc "cd '$srcdir' && make -C bin/named -j'$(nproc)' V=1 LIBS=\"\$(pkg-config --libs libedit)\" named"
+  assert_log_avoids_wrong_json_c "${log_root}/build-libs.log"
+  assert_log_avoids_wrong_json_c "${log_root}/built-sources.log"
   assert_log_avoids_wrong_json_c "${log_root}/build.log"
 
   artifact="${srcdir}/bin/named/named"
@@ -1418,7 +1428,7 @@ compile_syslog_ng() {
   run_compile_step \
     "build syslog-ng JSON plugin" \
     "${log_root}/build.log" \
-    bash -lc "cd '$builddir' && make -j'$(nproc)' V=1 modules/json/libjson-plugin.la"
+    bash -lc "cd '$builddir' && make -j1 V=1"
   assert_log_avoids_wrong_json_c "${log_root}/build.log"
 
   artifact="${builddir}/modules/json/.libs/libjson-plugin.so"
