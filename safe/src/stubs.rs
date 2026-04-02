@@ -5,7 +5,7 @@
 use crate::abi::*;
 use crate::{
     arraylist, debug, errors, iterators, linkhash, numeric, object, printbuf as printbuf_impl,
-    random_seed, serializer, strerror, version, visit,
+    random_seed, serializer, strerror, tokener, version, visit,
 };
 
 #[no_mangle]
@@ -19,12 +19,20 @@ pub unsafe extern "C" fn array_list_add(arg0: *mut array_list, arg1: *mut c_void
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_bsearch(arg0: *mut *const c_void, arg1: *mut array_list, arg2: Option<comparison_fn>) -> *mut c_void {
+pub unsafe extern "C" fn array_list_bsearch(
+    arg0: *mut *const c_void,
+    arg1: *mut array_list,
+    arg2: Option<comparison_fn>,
+) -> *mut c_void {
     arraylist::array_list_bsearch_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_del_idx(arg0: *mut array_list, arg1: size_t, arg2: size_t) -> c_int {
+pub unsafe extern "C" fn array_list_del_idx(
+    arg0: *mut array_list,
+    arg1: size_t,
+    arg2: size_t,
+) -> c_int {
     arraylist::array_list_del_idx_impl(arg0, arg1, arg2)
 }
 
@@ -39,7 +47,11 @@ pub unsafe extern "C" fn array_list_get_idx(arg0: *mut array_list, arg1: size_t)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_insert_idx(arg0: *mut array_list, arg1: size_t, arg2: *mut c_void) -> c_int {
+pub unsafe extern "C" fn array_list_insert_idx(
+    arg0: *mut array_list,
+    arg1: size_t,
+    arg2: *mut c_void,
+) -> c_int {
     arraylist::array_list_insert_idx_impl(arg0, arg1, arg2)
 }
 
@@ -54,12 +66,19 @@ pub unsafe extern "C" fn array_list_new(arg0: Option<array_list_free_fn>) -> *mu
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_new2(arg0: Option<array_list_free_fn>, arg1: c_int) -> *mut array_list {
+pub unsafe extern "C" fn array_list_new2(
+    arg0: Option<array_list_free_fn>,
+    arg1: c_int,
+) -> *mut array_list {
     arraylist::array_list_new2_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_put_idx(arg0: *mut array_list, arg1: size_t, arg2: *mut c_void) -> c_int {
+pub unsafe extern "C" fn array_list_put_idx(
+    arg0: *mut array_list,
+    arg1: size_t,
+    arg2: *mut c_void,
+) -> c_int {
     arraylist::array_list_put_idx_impl(arg0, arg1, arg2)
 }
 
@@ -79,17 +98,31 @@ pub unsafe extern "C" fn json_c_get_random_seed() -> c_int {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_c_set_serialization_double_format(arg0: *const c_char, arg1: c_int) -> c_int {
+pub unsafe extern "C" fn json_c_set_serialization_double_format(
+    arg0: *const c_char,
+    arg1: c_int,
+) -> c_int {
     serializer::json_c_set_serialization_double_format_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_c_shallow_copy_default(arg0: *mut json_object, arg1: *mut json_object, arg2: *const c_char, arg3: size_t, arg4: *mut *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_c_shallow_copy_default(
+    arg0: *mut json_object,
+    arg1: *mut json_object,
+    arg2: *const c_char,
+    arg3: size_t,
+    arg4: *mut *mut json_object,
+) -> c_int {
     object::json_c_shallow_copy_default_impl(arg0, arg1, arg2, arg3, arg4)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_c_visit(arg0: *mut json_object, arg1: c_int, arg2: Option<json_c_visit_userfunc>, arg3: *mut c_void) -> c_int {
+pub unsafe extern "C" fn json_c_visit(
+    arg0: *mut json_object,
+    arg1: c_int,
+    arg2: Option<json_c_visit_userfunc>,
+    arg3: *mut c_void,
+) -> c_int {
     visit::json_c_visit_impl(arg0, arg1, arg2, arg3)
 }
 
@@ -99,27 +132,45 @@ pub unsafe extern "C" fn json_global_set_string_hash(arg0: c_int) -> c_int {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_array_add(arg0: *mut json_object, arg1: *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_object_array_add(
+    arg0: *mut json_object,
+    arg1: *mut json_object,
+) -> c_int {
     object::json_object_array_add_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_array_bsearch(arg0: *const json_object, arg1: *const json_object, arg2: Option<comparison_fn>) -> *mut json_object {
+pub unsafe extern "C" fn json_object_array_bsearch(
+    arg0: *const json_object,
+    arg1: *const json_object,
+    arg2: Option<comparison_fn>,
+) -> *mut json_object {
     object::json_object_array_bsearch_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_array_del_idx(arg0: *mut json_object, arg1: size_t, arg2: size_t) -> c_int {
+pub unsafe extern "C" fn json_object_array_del_idx(
+    arg0: *mut json_object,
+    arg1: size_t,
+    arg2: size_t,
+) -> c_int {
     object::json_object_array_del_idx_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_array_get_idx(arg0: *const json_object, arg1: size_t) -> *mut json_object {
+pub unsafe extern "C" fn json_object_array_get_idx(
+    arg0: *const json_object,
+    arg1: size_t,
+) -> *mut json_object {
     object::json_object_array_get_idx_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_array_insert_idx(arg0: *mut json_object, arg1: size_t, arg2: *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_object_array_insert_idx(
+    arg0: *mut json_object,
+    arg1: size_t,
+    arg2: *mut json_object,
+) -> c_int {
     object::json_object_array_insert_idx_impl(arg0, arg1, arg2)
 }
 
@@ -129,7 +180,11 @@ pub unsafe extern "C" fn json_object_array_length(arg0: *const json_object) -> s
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_array_put_idx(arg0: *mut json_object, arg1: size_t, arg2: *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_object_array_put_idx(
+    arg0: *mut json_object,
+    arg1: size_t,
+    arg2: *mut json_object,
+) -> c_int {
     object::json_object_array_put_idx_impl(arg0, arg1, arg2)
 }
 
@@ -139,22 +194,37 @@ pub unsafe extern "C" fn json_object_array_shrink(arg0: *mut json_object, arg1: 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_array_sort(arg0: *mut json_object, arg1: Option<comparison_fn>) {
+pub unsafe extern "C" fn json_object_array_sort(
+    arg0: *mut json_object,
+    arg1: Option<comparison_fn>,
+) {
     object::json_object_array_sort_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_deep_copy(arg0: *mut json_object, arg1: *mut *mut json_object, arg2: Option<json_c_shallow_copy_fn>) -> c_int {
+pub unsafe extern "C" fn json_object_deep_copy(
+    arg0: *mut json_object,
+    arg1: *mut *mut json_object,
+    arg2: Option<json_c_shallow_copy_fn>,
+) -> c_int {
     object::json_object_deep_copy_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_double_to_json_string(arg0: *mut json_object, arg1: *mut printbuf, arg2: c_int, arg3: c_int) -> c_int {
+pub unsafe extern "C" fn json_object_double_to_json_string(
+    arg0: *mut json_object,
+    arg1: *mut printbuf,
+    arg2: c_int,
+    arg3: c_int,
+) -> c_int {
     serializer::json_object_double_to_json_string_impl(arg0, arg1, arg2, arg3)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_equal(arg0: *mut json_object, arg1: *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_object_equal(
+    arg0: *mut json_object,
+    arg1: *mut json_object,
+) -> c_int {
     object::json_object_equal_impl(arg0, arg1)
 }
 
@@ -259,7 +329,10 @@ pub unsafe extern "C" fn json_object_iter_end(arg0: *const json_object) -> json_
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_iter_equal(arg0: *const json_object_iterator, arg1: *const json_object_iterator) -> json_bool {
+pub unsafe extern "C" fn json_object_iter_equal(
+    arg0: *const json_object_iterator,
+    arg1: *const json_object_iterator,
+) -> json_bool {
     iterators::json_object_iter_equal_impl(arg0, arg1)
 }
 
@@ -274,12 +347,16 @@ pub unsafe extern "C" fn json_object_iter_next(arg0: *mut json_object_iterator) 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_iter_peek_name(arg0: *const json_object_iterator) -> *const c_char {
+pub unsafe extern "C" fn json_object_iter_peek_name(
+    arg0: *const json_object_iterator,
+) -> *const c_char {
     iterators::json_object_iter_peek_name_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_iter_peek_value(arg0: *const json_object_iterator) -> *mut json_object {
+pub unsafe extern "C" fn json_object_iter_peek_value(
+    arg0: *const json_object_iterator,
+) -> *mut json_object {
     iterators::json_object_iter_peek_value_impl(arg0)
 }
 
@@ -304,7 +381,10 @@ pub unsafe extern "C" fn json_object_new_double(arg0: c_double) -> *mut json_obj
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_new_double_s(arg0: c_double, arg1: *const c_char) -> *mut json_object {
+pub unsafe extern "C" fn json_object_new_double_s(
+    arg0: c_double,
+    arg1: *const c_char,
+) -> *mut json_object {
     object::json_object_new_double_s_impl(arg0, arg1)
 }
 
@@ -334,7 +414,10 @@ pub unsafe extern "C" fn json_object_new_string(arg0: *const c_char) -> *mut jso
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_new_string_len(arg0: *const c_char, arg1: c_int) -> *mut json_object {
+pub unsafe extern "C" fn json_object_new_string_len(
+    arg0: *const c_char,
+    arg1: c_int,
+) -> *mut json_object {
     object::json_object_new_string_len_impl(arg0, arg1)
 }
 
@@ -344,12 +427,21 @@ pub unsafe extern "C" fn json_object_new_uint64(arg0: uint64_t) -> *mut json_obj
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_object_add(arg0: *mut json_object, arg1: *const c_char, arg2: *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_object_object_add(
+    arg0: *mut json_object,
+    arg1: *const c_char,
+    arg2: *mut json_object,
+) -> c_int {
     object::json_object_object_add_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_object_add_ex(arg0: *mut json_object, arg1: *const c_char, arg2: *mut json_object, arg3: c_uint) -> c_int {
+pub unsafe extern "C" fn json_object_object_add_ex(
+    arg0: *mut json_object,
+    arg1: *const c_char,
+    arg2: *mut json_object,
+    arg3: c_uint,
+) -> c_int {
     object::json_object_object_add_ex_impl(arg0, arg1, arg2, arg3)
 }
 
@@ -359,12 +451,19 @@ pub unsafe extern "C" fn json_object_object_del(arg0: *mut json_object, arg1: *c
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_object_get(arg0: *const json_object, arg1: *const c_char) -> *mut json_object {
+pub unsafe extern "C" fn json_object_object_get(
+    arg0: *const json_object,
+    arg1: *const c_char,
+) -> *mut json_object {
     object::json_object_object_get_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_object_get_ex(arg0: *const json_object, arg1: *const c_char, arg2: *mut *mut json_object) -> json_bool {
+pub unsafe extern "C" fn json_object_object_get_ex(
+    arg0: *const json_object,
+    arg1: *const c_char,
+    arg2: *mut *mut json_object,
+) -> json_bool {
     object::json_object_object_get_ex_impl(arg0, arg1, arg2)
 }
 
@@ -399,17 +498,29 @@ pub unsafe extern "C" fn json_object_set_int64(arg0: *mut json_object, arg1: int
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_set_serializer(arg0: *mut json_object, arg1: Option<json_object_to_json_string_fn>, arg2: *mut c_void, arg3: Option<json_object_delete_fn>) {
+pub unsafe extern "C" fn json_object_set_serializer(
+    arg0: *mut json_object,
+    arg1: Option<json_object_to_json_string_fn>,
+    arg2: *mut c_void,
+    arg3: Option<json_object_delete_fn>,
+) {
     serializer::json_object_set_serializer_impl(arg0, arg1, arg2, arg3)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_set_string(arg0: *mut json_object, arg1: *const c_char) -> c_int {
+pub unsafe extern "C" fn json_object_set_string(
+    arg0: *mut json_object,
+    arg1: *const c_char,
+) -> c_int {
     object::json_object_set_string_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_set_string_len(arg0: *mut json_object, arg1: *const c_char, arg2: c_int) -> c_int {
+pub unsafe extern "C" fn json_object_set_string_len(
+    arg0: *mut json_object,
+    arg1: *const c_char,
+    arg2: c_int,
+) -> c_int {
     object::json_object_set_string_len_impl(arg0, arg1, arg2)
 }
 
@@ -419,22 +530,37 @@ pub unsafe extern "C" fn json_object_set_uint64(arg0: *mut json_object, arg1: ui
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_set_userdata(arg0: *mut json_object, arg1: *mut c_void, arg2: Option<json_object_delete_fn>) {
+pub unsafe extern "C" fn json_object_set_userdata(
+    arg0: *mut json_object,
+    arg1: *mut c_void,
+    arg2: Option<json_object_delete_fn>,
+) {
     serializer::json_object_set_userdata_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_to_fd(_arg0: c_int, _arg1: *mut json_object, _arg2: c_int) -> c_int {
+pub unsafe extern "C" fn json_object_to_fd(
+    _arg0: c_int,
+    _arg1: *mut json_object,
+    _arg2: c_int,
+) -> c_int {
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_to_file(_arg0: *const c_char, _arg1: *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_object_to_file(
+    _arg0: *const c_char,
+    _arg1: *mut json_object,
+) -> c_int {
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_to_file_ext(_arg0: *const c_char, _arg1: *mut json_object, _arg2: c_int) -> c_int {
+pub unsafe extern "C" fn json_object_to_file_ext(
+    _arg0: *const c_char,
+    _arg1: *mut json_object,
+    _arg2: c_int,
+) -> c_int {
     0
 }
 
@@ -444,17 +570,29 @@ pub unsafe extern "C" fn json_object_to_json_string(arg0: *mut json_object) -> *
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_to_json_string_ext(arg0: *mut json_object, arg1: c_int) -> *const c_char {
+pub unsafe extern "C" fn json_object_to_json_string_ext(
+    arg0: *mut json_object,
+    arg1: c_int,
+) -> *const c_char {
     serializer::json_object_to_json_string_ext_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_to_json_string_length(arg0: *mut json_object, arg1: c_int, arg2: *mut size_t) -> *const c_char {
+pub unsafe extern "C" fn json_object_to_json_string_length(
+    arg0: *mut json_object,
+    arg1: c_int,
+    arg2: *mut size_t,
+) -> *const c_char {
     serializer::json_object_to_json_string_length_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_userdata_to_json_string(arg0: *mut json_object, arg1: *mut printbuf, arg2: c_int, arg3: c_int) -> c_int {
+pub unsafe extern "C" fn json_object_userdata_to_json_string(
+    arg0: *mut json_object,
+    arg1: *mut printbuf,
+    arg2: c_int,
+    arg3: c_int,
+) -> c_int {
     serializer::json_object_userdata_to_json_string_impl(arg0, arg1, arg2, arg3)
 }
 
@@ -474,70 +612,93 @@ pub unsafe extern "C" fn json_parse_uint64(arg0: *const c_char, arg1: *mut uint6
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_patch_apply(_arg0: *mut json_object, _arg1: *mut json_object, _arg2: *mut *mut json_object, _arg3: *mut json_patch_error) -> c_int {
+pub unsafe extern "C" fn json_patch_apply(
+    _arg0: *mut json_object,
+    _arg1: *mut json_object,
+    _arg2: *mut *mut json_object,
+    _arg3: *mut json_patch_error,
+) -> c_int {
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_pointer_get(_arg0: *mut json_object, _arg1: *const c_char, _arg2: *mut *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_pointer_get(
+    _arg0: *mut json_object,
+    _arg1: *const c_char,
+    _arg2: *mut *mut json_object,
+) -> c_int {
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_pointer_set(_arg0: *mut *mut json_object, _arg1: *const c_char, _arg2: *mut json_object) -> c_int {
+pub unsafe extern "C" fn json_pointer_set(
+    _arg0: *mut *mut json_object,
+    _arg1: *const c_char,
+    _arg2: *mut json_object,
+) -> c_int {
     0
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_error_desc(_arg0: json_tokener_error) -> *const c_char {
-    std::ptr::null()
+pub unsafe extern "C" fn json_tokener_error_desc(arg0: json_tokener_error) -> *const c_char {
+    tokener::json_tokener_error_desc_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_free(_arg0: *mut json_tokener) {
+pub unsafe extern "C" fn json_tokener_free(arg0: *mut json_tokener) {
+    tokener::json_tokener_free_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_get_error(_arg0: *mut json_tokener) -> json_tokener_error {
-    0
+pub unsafe extern "C" fn json_tokener_get_error(arg0: *mut json_tokener) -> json_tokener_error {
+    tokener::json_tokener_get_error_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_get_parse_end(_arg0: *mut json_tokener) -> size_t {
-    0
+pub unsafe extern "C" fn json_tokener_get_parse_end(arg0: *mut json_tokener) -> size_t {
+    tokener::json_tokener_get_parse_end_impl(arg0)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_tokener_new() -> *mut json_tokener {
-    std::ptr::null_mut()
+    tokener::json_tokener_new_impl()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_new_ex(_arg0: c_int) -> *mut json_tokener {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn json_tokener_new_ex(arg0: c_int) -> *mut json_tokener {
+    tokener::json_tokener_new_ex_impl(arg0)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_tokener_parse(arg0: *const c_char) -> *mut json_object {
-    object::json_tokener_parse_impl(arg0)
+    tokener::json_tokener_parse_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_parse_ex(_arg0: *mut json_tokener, _arg1: *const c_char, _arg2: c_int) -> *mut json_object {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn json_tokener_parse_ex(
+    arg0: *mut json_tokener,
+    arg1: *const c_char,
+    arg2: c_int,
+) -> *mut json_object {
+    tokener::json_tokener_parse_ex_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_parse_verbose(_arg0: *const c_char, _arg1: *mut json_tokener_error) -> *mut json_object {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn json_tokener_parse_verbose(
+    arg0: *const c_char,
+    arg1: *mut json_tokener_error,
+) -> *mut json_object {
+    tokener::json_tokener_parse_verbose_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_reset(_arg0: *mut json_tokener) {
+pub unsafe extern "C" fn json_tokener_reset(arg0: *mut json_tokener) {
+    tokener::json_tokener_reset_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_tokener_set_flags(_arg0: *mut json_tokener, _arg1: c_int) {
+pub unsafe extern "C" fn json_tokener_set_flags(arg0: *mut json_tokener, arg1: c_int) {
+    tokener::json_tokener_set_flags_impl(arg0, arg1)
 }
 
 #[no_mangle]
@@ -556,12 +717,18 @@ pub unsafe extern "C" fn lh_char_equal(arg0: *const c_void, arg1: *const c_void)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_kchar_table_new(arg0: c_int, arg1: Option<lh_entry_free_fn>) -> *mut lh_table {
+pub unsafe extern "C" fn lh_kchar_table_new(
+    arg0: c_int,
+    arg1: Option<lh_entry_free_fn>,
+) -> *mut lh_table {
     linkhash::lh_kchar_table_new_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_kptr_table_new(arg0: c_int, arg1: Option<lh_entry_free_fn>) -> *mut lh_table {
+pub unsafe extern "C" fn lh_kptr_table_new(
+    arg0: c_int,
+    arg1: Option<lh_entry_free_fn>,
+) -> *mut lh_table {
     linkhash::lh_kptr_table_new_impl(arg0, arg1)
 }
 
@@ -586,12 +753,22 @@ pub unsafe extern "C" fn lh_table_free(arg0: *mut lh_table) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_insert(arg0: *mut lh_table, arg1: *const c_void, arg2: *const c_void) -> c_int {
+pub unsafe extern "C" fn lh_table_insert(
+    arg0: *mut lh_table,
+    arg1: *const c_void,
+    arg2: *const c_void,
+) -> c_int {
     linkhash::lh_table_insert_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_insert_w_hash(arg0: *mut lh_table, arg1: *const c_void, arg2: *const c_void, arg3: c_ulong, arg4: c_uint) -> c_int {
+pub unsafe extern "C" fn lh_table_insert_w_hash(
+    arg0: *mut lh_table,
+    arg1: *const c_void,
+    arg2: *const c_void,
+    arg3: c_ulong,
+    arg4: c_uint,
+) -> c_int {
     linkhash::lh_table_insert_w_hash_impl(arg0, arg1, arg2, arg3, arg4)
 }
 
@@ -601,22 +778,38 @@ pub unsafe extern "C" fn lh_table_length(arg0: *mut lh_table) -> c_int {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_lookup_entry(arg0: *mut lh_table, arg1: *const c_void) -> *mut lh_entry {
+pub unsafe extern "C" fn lh_table_lookup_entry(
+    arg0: *mut lh_table,
+    arg1: *const c_void,
+) -> *mut lh_entry {
     linkhash::lh_table_lookup_entry_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_lookup_entry_w_hash(arg0: *mut lh_table, arg1: *const c_void, arg2: c_ulong) -> *mut lh_entry {
+pub unsafe extern "C" fn lh_table_lookup_entry_w_hash(
+    arg0: *mut lh_table,
+    arg1: *const c_void,
+    arg2: c_ulong,
+) -> *mut lh_entry {
     linkhash::lh_table_lookup_entry_w_hash_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_lookup_ex(arg0: *mut lh_table, arg1: *const c_void, arg2: *mut *mut c_void) -> json_bool {
+pub unsafe extern "C" fn lh_table_lookup_ex(
+    arg0: *mut lh_table,
+    arg1: *const c_void,
+    arg2: *mut *mut c_void,
+) -> json_bool {
     linkhash::lh_table_lookup_ex_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_new(arg0: c_int, arg1: Option<lh_entry_free_fn>, arg2: Option<lh_hash_fn>, arg3: Option<lh_equal_fn>) -> *mut lh_table {
+pub unsafe extern "C" fn lh_table_new(
+    arg0: c_int,
+    arg1: Option<lh_entry_free_fn>,
+    arg2: Option<lh_hash_fn>,
+    arg3: Option<lh_equal_fn>,
+) -> *mut lh_table {
     linkhash::lh_table_new_impl(arg0, arg1, arg2, arg3)
 }
 
@@ -646,12 +839,21 @@ pub unsafe extern "C" fn printbuf_free(arg0: *mut printbuf) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn printbuf_memappend(arg0: *mut printbuf, arg1: *const c_char, arg2: c_int) -> c_int {
+pub unsafe extern "C" fn printbuf_memappend(
+    arg0: *mut printbuf,
+    arg1: *const c_char,
+    arg2: c_int,
+) -> c_int {
     printbuf_impl::printbuf_memappend_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn printbuf_memset(arg0: *mut printbuf, arg1: c_int, arg2: c_int, arg3: c_int) -> c_int {
+pub unsafe extern "C" fn printbuf_memset(
+    arg0: *mut printbuf,
+    arg1: c_int,
+    arg2: c_int,
+    arg3: c_int,
+) -> c_int {
     printbuf_impl::printbuf_memset_impl(arg0, arg1, arg2, arg3)
 }
 
@@ -686,7 +888,8 @@ pub unsafe extern "C" fn _json_c_strerror(arg0: c_int) -> *mut c_char {
 }
 
 #[cfg(target_arch = "x86_64")]
-core::arch::global_asm!(r#"
+core::arch::global_asm!(
+    r#"
 .globl json_pointer_getf
 .type json_pointer_getf, @function
 json_pointer_getf:
@@ -699,7 +902,8 @@ json_pointer_setf:
     xor eax, eax
     ret
 
-"#);
+"#
+);
 
 #[cfg(not(target_arch = "x86_64"))]
 compile_error!("Phase 1 variadic stubs are only implemented for x86_64 targets.");

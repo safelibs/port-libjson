@@ -220,7 +220,7 @@ set(HAVE_JSON_TOKENER_GET_PARSE_END 1)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/json_config.h.in ${PROJECT_BINARY_DIR}/json_config.h)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/../original/apps/cmake/apps_config.h.in ${PROJECT_BINARY_DIR}/apps_config.h)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/apps/cmake/apps_config.h.in ${PROJECT_BINARY_DIR}/apps_config.h)
 
 if(NOT ("${CMAKE_C_COMPILER_ID}" STREQUAL "MSVC"))
     check_c_source_compiles(
@@ -318,6 +318,7 @@ add_custom_command(
         ${PROJECT_SOURCE_DIR}/src/debug.rs
         ${PROJECT_SOURCE_DIR}/src/errors.rs
         ${PROJECT_SOURCE_DIR}/src/iterators.rs
+        ${PROJECT_SOURCE_DIR}/src/locale.rs
         ${PROJECT_SOURCE_DIR}/src/linkhash.rs
         ${PROJECT_SOURCE_DIR}/src/mini_json.rs
         ${PROJECT_SOURCE_DIR}/src/numeric.rs
@@ -327,6 +328,8 @@ add_custom_command(
         ${PROJECT_SOURCE_DIR}/src/serializer.rs
         ${PROJECT_SOURCE_DIR}/src/strerror.rs
         ${PROJECT_SOURCE_DIR}/src/stubs.rs
+        ${PROJECT_SOURCE_DIR}/src/tokener.rs
+        ${PROJECT_SOURCE_DIR}/src/utf8.rs
         ${PROJECT_SOURCE_DIR}/src/variadic.c
         ${PROJECT_SOURCE_DIR}/src/version.rs
         ${PROJECT_SOURCE_DIR}/src/visit.rs
@@ -476,6 +479,19 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
     set(OBJECT_CORE_TEST_REGEX "^(${OBJECT_CORE_TEST_REGEX_BODY})$")
     string(REPLACE ";" " " OBJECT_CORE_TEST_NAMES_SH "${OBJECT_CORE_TEST_NAMES}")
 
+    set(PARSER_TEST_NAMES
+        test4
+        test_cast
+        test_charcase
+        test_locale
+        test_null
+        test_parse
+        test_parse_int64
+        test_public_api
+    )
+    string(REPLACE ";" "|" PARSER_TEST_REGEX_BODY "${PARSER_TEST_NAMES}")
+    set(PARSER_TEST_REGEX "^(${PARSER_TEST_REGEX_BODY})$")
+
     add_executable(foundation_smoke tests/foundation/foundation_smoke.c)
     add_dependencies(foundation_smoke json-c-static)
     target_include_directories(foundation_smoke
@@ -536,8 +552,41 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
         PROPERTIES
             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
     )
+
+    add_test(
+        NAME verify_04_parser_suite
+        COMMAND ${PROJECT_SOURCE_DIR}/tools/run-upstream-tests.sh
+                ${PROJECT_BINARY_DIR}
+                ${PARSER_TEST_REGEX}
+    )
+    set_tests_properties(
+        verify_04_parser_suite
+        PROPERTIES
+            WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    )
+
+    if(BUILD_APPS)
+        add_test(
+            NAME verify_04_tokener_check
+            COMMAND ${CMAKE_COMMAND} -E env
+                    PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+                    PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}
+                    bash -lc
+                    "set -euo pipefail; \
+                     \"$PROJECT_SOURCE_DIR/tools/check-layout.sh\" \
+                         \"$PROJECT_BINARY_DIR\"; \
+                     \"$PROJECT_BINARY_DIR/apps/json_parse\" -n \
+                         \"$PROJECT_SOURCE_DIR/tests/upstream/valid.json\" \
+                         >/dev/null"
+        )
+        set_tests_properties(
+            verify_04_tokener_check
+            PROPERTIES
+                WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+        )
+    endif()
 endif()
 
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_APPS)
-    message(STATUS "BUILD_APPS is accepted but app scaffolding is deferred past impl_01_scaffold_surface")
+if(BUILD_APPS)
+    add_subdirectory(apps ${PROJECT_BINARY_DIR}/apps)
 endif()
