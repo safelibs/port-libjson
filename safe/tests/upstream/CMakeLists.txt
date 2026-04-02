@@ -42,7 +42,7 @@ set(ALL_TEST_NAMES
     test_object_iterator)
 
 if (NOT DISABLE_JSON_POINTER)
-    set(ALL_TEST_NAMES ${ALL_TEST_NAMES} test_json_pointer)
+    set(ALL_TEST_NAMES ${ALL_TEST_NAMES} test_json_pointer test_json_pointer_escaped_final_key)
     if (NOT DISABLE_JSON_PATCH)
         set(ALL_TEST_NAMES ${ALL_TEST_NAMES} test_json_patch)
     endif()
