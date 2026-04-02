@@ -304,6 +304,15 @@ static void test_example_set(void)
 	       json_object_get_string(jo1));
 	json_object_put(jo1);
 	json_object_put(jo2);
+
+	jo1 = json_tokener_parse("{ 'a/b': 1, 'a~1b': 2 }");
+	jo2 = json_tokener_parse("{ 'a/b': 1, 'a~1b': 9 }");
+	assert(0 == json_pointer_set(&jo1, "/a~1b", json_object_new_int(9)));
+	assert(1 == json_object_equal(jo1, jo2));
+	printf("PASSED - SET - escaped final object key replaces literal peer: %s\n",
+	       json_object_get_string(jo1));
+	json_object_put(jo1);
+	json_object_put(jo2);
 }
 
 static void test_wrong_inputs_set(void)

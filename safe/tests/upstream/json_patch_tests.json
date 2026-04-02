@@ -380,6 +380,11 @@
       "patch": [{ "op": "remove", "path": "/a~1b" }],
       "expected": { "a/b": 1, "m~n": 8 } },
 
+    { "comment": "escaped remove prefers literal peer when both keys exist",
+      "doc": { "a/b": 1, "a~1b": 2 },
+      "patch": [{ "op": "remove", "path": "/a~1b" }],
+      "expected": { "a/b": 1 } },
+
     { "comment": "escaped copy keeps literal destination key",
       "doc": { "a/b": 1 },
       "patch": [{ "op": "copy", "from": "/a~1b", "path": "/x~1y" }],
@@ -387,6 +392,11 @@
 
     { "comment": "escaped move adds literal destination and preserves source",
       "doc": { "a/b": 1 },
+      "patch": [{ "op": "move", "from": "/a~1b", "path": "/x~1y" }],
+      "expected": { "a/b": 1, "x~1y": 1 } },
+
+    { "comment": "escaped move removes literal peer when both source keys exist",
+      "doc": { "a/b": 1, "a~1b": 2 },
       "patch": [{ "op": "move", "from": "/a~1b", "path": "/x~1y" }],
       "expected": { "a/b": 1, "x~1y": 1 } },
 

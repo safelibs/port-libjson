@@ -3,6 +3,7 @@
 #endif
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "json.h"
@@ -22,7 +23,20 @@ int main(void)
 
 	last_err = json_util_get_last_err();
 	assert(last_err != NULL);
-	assert(strstr(last_err, "unable to copy unknown serializer data") != NULL);
+	assert(strncmp(last_err,
+	               "json_object_copy_serializer_data: unable to copy unknown serializer data: ",
+	               strlen("json_object_copy_serializer_data: unable to copy unknown serializer data: ")) == 0);
+	{
+		void *serializer = NULL;
+		int consumed = 0;
+
+		assert(sscanf(last_err,
+		              "json_object_copy_serializer_data: unable to copy unknown serializer data: %p%n",
+		              &serializer, &consumed) == 1);
+		assert(serializer != NULL);
+		assert(last_err[consumed] == '\n');
+		assert(last_err[consumed + 1] == '\0');
+	}
 
 	printf("deep_copy with NULL serializer userdata failed as expected.\n");
 
