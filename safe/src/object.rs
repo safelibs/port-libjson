@@ -915,8 +915,13 @@ pub(crate) unsafe fn json_object_new_array_impl() -> *mut json_object
 
 pub(crate) unsafe fn json_object_new_array_ext_impl(initial_size: c_int) -> *mut json_object
 {
+    if initial_size < 0
+    {
+        return ptr::null_mut();
+    }
+
     let list =
-        arraylist::array_list_new2_impl(Some(json_object_array_entry_free), initial_size.max(0));
+        arraylist::array_list_new2_impl(Some(json_object_array_entry_free), initial_size);
     if list.is_null()
     {
         set_errno(ENOMEM);
@@ -1411,9 +1416,43 @@ impl<'a> Parser<'a>
 
     fn skip_ws(&mut self)
     {
-        while matches!(self.peek(), Some(b' ' | b'\n' | b'\r' | b'\t'))
+        loop
         {
-            self.offset += 1;
+            while matches!(self.peek(), Some(b' ' | b'\n' | b'\r' | b'\t'))
+            {
+                self.offset += 1;
+            }
+
+            if self.peek() == Some(b'/') && self.input.get(self.offset + 1) == Some(&b'*')
+            {
+                self.offset += 2;
+                while self.offset + 1 < self.input.len() &&
+                    !(self.input[self.offset] == b'*' && self.input[self.offset + 1] == b'/')
+                {
+                    self.offset += 1;
+                }
+                if self.offset + 1 < self.input.len()
+                {
+                    self.offset += 2;
+                }
+                continue;
+            }
+
+            if self.peek() == Some(b'/') && self.input.get(self.offset + 1) == Some(&b'/')
+            {
+                self.offset += 2;
+                while let Some(ch) = self.peek()
+                {
+                    self.offset += 1;
+                    if ch == b'\n'
+                    {
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            break;
         }
     }
 
