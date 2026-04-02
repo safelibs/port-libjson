@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "generated_on": "2026-04-01",
+  "ubuntu_release": "24.04 LTS (noble)",
+  "library": "json-c",
+  "metadata_source": "Local apt-cache binary and source metadata from the Ubuntu 24.04 repositories configured on this system, plus inspected Ubuntu source package contents unpacked under /tmp for feature verification.",
+  "selection_policy": "Representative direct dependents on libjson-c5 and/or libjson-c-dev. This list is intentionally diverse rather than exhaustive.",
+  "dependents": [
+    {
+      "name": "BIND 9",
+      "source_package": "bind9",
+      "category": "DNS server",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "bind9",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "bind9",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Exposes DNS server, resolver, cache, task, and zone statistics as JSON through BIND's statistics channel.",
+      "evidence": [
+        "Ubuntu package metadata shows bind9 Depends on libjson-c5 and the bind9 source package Build-Depends on libjson-c-dev.",
+        "The source configures BIND with --with-json-c, and bin/named/statschannel.c plus lib/dns/cache.c render statistics as JSON objects."
+      ]
+    },
+    {
+      "name": "FRRouting",
+      "source_package": "frr",
+      "category": "routing suite",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "frr",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "frr",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Provides JSON output for many operational and status commands, and stores some OSPF graceful-restart state in JSON files.",
+      "evidence": [
+        "Ubuntu package metadata shows frr Depends on libjson-c5 and the frr source package Build-Depends on libjson-c-dev.",
+        "Source files such as bgpd/bgp_vpn.c, vrrpd/vrrp_vty.c, and zebra/zebra_mpls.c build JSON command output, while ospfd/ospf_gr.c reads and writes JSON state files."
+      ]
+    },
+    {
+      "name": "Sway",
+      "source_package": "sway",
+      "category": "Wayland compositor",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "sway",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "sway",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Uses JSON IPC for swaymsg and swaybar state queries and events, including workspaces, outputs, inputs, seats, tree data, and bar configuration.",
+      "evidence": [
+        "Ubuntu package metadata shows sway Depends on libjson-c5 and the sway source package Build-Depends on libjson-c-dev.",
+        "swaymsg/main.c parses and pretty-prints JSON IPC replies, and swaybar/ipc.c parses JSON bar configuration data."
+      ]
+    },
+    {
+      "name": "GDAL",
+      "source_package": "gdal",
+      "category": "geospatial data library",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "libgdal34t64",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "gdal",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Reads and writes JSON-based geospatial formats such as GeoJSON, ESRIJSON, JSON-FG, and TopoJSON.",
+      "evidence": [
+        "Ubuntu package metadata shows libgdal34t64 Depends on libjson-c5 and the gdal source package Build-Depends on libjson-c-dev.",
+        "The GDAL source registers GeoJSON, ESRIJSON, JSONFG, and TopoJSON drivers, and ogr/ogrgeometryfactory.cpp passes json-c objects into GeoJSON geometry readers."
+      ]
+    },
+    {
+      "name": "nvme-cli",
+      "source_package": "nvme-cli",
+      "category": "NVMe storage management CLI",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "nvme-cli",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "nvme-cli",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Produces structured JSON output for controller, namespace, subsystem, log-page, and ZNS reporting commands.",
+      "evidence": [
+        "Ubuntu package metadata shows nvme-cli Depends on libjson-c5 and the nvme-cli source package Build-Depends on libjson-c-dev.",
+        "nvme-print-json.c builds JSON responses for many nvme subcommands, and util/json.c provides json-c-based numeric serialization helpers."
+      ]
+    },
+    {
+      "name": "BlueZ Mesh Daemon",
+      "source_package": "bluez",
+      "category": "Bluetooth mesh daemon",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "bluez-meshd",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "bluez",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Stores and updates Bluetooth mesh provisioning, composition, key, and node configuration data in JSON files used by the mesh daemon and its bundled tools.",
+      "evidence": [
+        "Ubuntu package metadata shows bluez-meshd Depends on libjson-c5 and the bluez source package Build-Depends on libjson-c-dev.",
+        "BlueZ mesh build rules link mesh components against -ljson-c, and tools/mesh-gatt/prov-db.c parses and writes the JSON provisioning database."
+      ]
+    },
+    {
+      "name": "syslog-ng",
+      "source_package": "syslog-ng",
+      "category": "logging daemon",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "syslog-ng-core",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "syslog-ng",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Receives and sends JSON-formatted log messages and provides JSON parsing and format-json templating support.",
+      "evidence": [
+        "Ubuntu package metadata shows syslog-ng-core Depends on libjson-c5 and the syslog-ng source package Build-Depends on libjson-c-dev.",
+        "The package description explicitly advertises JSON message support, and the source enables JSON support and installs libjson-plugin.so for JSON parsing and formatting."
+      ]
+    },
+    {
+      "name": "ttyd",
+      "source_package": "ttyd",
+      "category": "web terminal server",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "ttyd",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "ttyd",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Uses JSON messages between browser and server to negotiate terminal window size, carry AuthToken data, and deliver browser/client preference objects.",
+      "evidence": [
+        "Ubuntu package metadata shows ttyd Depends on libjson-c5 and the ttyd source package Build-Depends on libjson-c-dev.",
+        "src/protocol.c parses JSON messages for columns, rows, and AuthToken, and src/server.c builds JSON client preference data for the frontend."
+      ]
+    },
+    {
+      "name": "tlog",
+      "source_package": "tlog",
+      "category": "terminal session recording",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "tlog",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "runtime",
+          "binary_package": "libtlog0",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "tlog",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Encodes recorded terminal I/O sessions as JSON, supports JSON configuration files, and replays or exports those recordings.",
+      "evidence": [
+        "Ubuntu package metadata shows tlog and libtlog0 depend on libjson-c5, and the tlog source package Build-Depends on libjson-c-dev.",
+        "The package description and README state that recordings are encoded in JSON, and the source ships JSON sink, source, stream, and configuration handling under include/tlog/json_*."
+      ]
+    },
+    {
+      "name": "PuREST JSON for Pure Data",
+      "source_package": "pd-purest-json",
+      "category": "Pure Data extension",
+      "dependency_paths": [
+        {
+          "kind": "runtime",
+          "binary_package": "pd-purest-json",
+          "libjson_package": "libjson-c5"
+        },
+        {
+          "kind": "compile-time",
+          "source_package": "pd-purest-json",
+          "libjson_package": "libjson-c-dev"
+        }
+      ],
+      "runtime_functionality": "Lets Pure Data patches encode and decode JSON, read and write JSON files, and exchange JSON payloads with RESTful web services.",
+      "evidence": [
+        "Ubuntu package metadata shows pd-purest-json Depends on libjson-c5 and the source package Build-Depends on libjson-c-dev.",
+        "The package description says it decodes and encodes JSON, and src/json-encode.c plus src/json-decode.c implement the runtime JSON encoder and decoder objects."
+      ]
+    }
+  ]
+}
