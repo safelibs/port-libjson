@@ -1,0 +1,714 @@
+name: libjson-safe-linear-workflow
+backend: codex
+max_bounces: 999
+
+phases:
+  - id: impl_01_expand_dependent_inventory
+    bounce_target: null
+    prompt: |-
+      Role: Software engineer implementing phase `impl_01_expand_dependent_inventory`.
+
+      Objective
+      Expand the Ubuntu 24.04 dependent inventory and runtime matrix from 10 to 12 applications.
+
+      Preexisting Inputs
+      - `dependents.json`
+      - `test-original.sh`
+      - `original/`
+      - `original/build/`
+      - `original/build/cmake_install.cmake`
+      - `original/build/CMakeFiles/Export/`
+      - `original/build/libjson-c.so`
+      - `original/build/libjson-c.so.5`
+      - `original/build/libjson-c.so.5.3.0`
+      - `original/build/libjson-c.a`
+      - `original/build/json-c.pc`
+      - `original/build/json-c-config.cmake`
+      - `original/build/json.h`
+      - `original/build/json_config.h`
+      - `safe/tools/full-verify.sh`
+      - `build-check/`
+      - The current 10 runtime applications already encoded in `dependents.json` and `test-original.sh`
+      - The existing runtime Docker image definition embedded in `test-original.sh`
+
+      New Outputs
+      - `dependents.json` updated to exactly 12 applications
+      - `test-original.sh` updated to exercise all 12 applications in the runtime matrix
+      - `test-original.sh` updated so `--mode original-source` stages the prepared upstream install surface without rebuilding `original/`
+      - Deterministic, read-only runtime assertions for `ndctl` and `daxctl`
+
+      Expected File Changes
+      - Modify `dependents.json`
+      - Modify `test-original.sh`
+
+      Required Work
+      - Keep the workflow linear and explicit. The verifier IDs for this phase are fixed as `verify_01_dependent_inventory_script`, `check_01_software_tester`, and `check_01_senior_tester`; do not invent new verifier topology.
+      - Treat the planning IDs in this prompt as distinct from the stable CTest verifier names already present under `safe/`. Do not rename existing automation to match planning IDs.
+      - Consume the prepared artifacts already present in `original/`, `original/build/`, `build-check/`, `dependents.json`, `test-original.sh`, and `safe/tools/full-verify.sh`. Do not refetch, rediscover, recollect, or regenerate them from scratch, and do not overwrite `original/build/` or `build-check/`.
+      - Preserve the current `dependents.json` schema and metadata style. Extend the file in place instead of replacing it with a new inventory format, and update `generated_on` to the actual inventory revision date.
+      - Verify this phase against the authoritative `original-source` baseline, not `safe-package`. Inventory and runtime-harness expansion belong here; safe-library runtime bugs discovered here belong to phase 4.
+      - Replace `build_original_json_c()` in `test-original.sh` with an install-only baseline staging path before extending the matrix.
+      - Make the `original-source` staging path consume the prepared upstream shared and static libraries, generated headers, public headers, pkg-config metadata, `json-c-config.cmake`, and the real upstream `json-c-targets*.cmake` files from `original/` and `original/build/`.
+      - Stage `original/build/libjson-c.so`, `original/build/libjson-c.so.5`, `original/build/libjson-c.so.5.3.0`, `original/build/libjson-c.a`, `original/build/json-c.pc`, `original/build/json-c-config.cmake`, `original/build/json.h`, `original/build/json_config.h`, the public headers enumerated by `original/build/cmake_install.cmake`, and exactly one prepared export directory under `original/build/CMakeFiles/Export/`; fail fast if zero or multiple export directories match.
+      - Treat `original/build/cmake_install.cmake` only as a manifest of the prepared upstream install surface. Because it embeds absolute paths and writes `install_manifest.txt`, do not execute it.
+      - Use one of the allowed staging implementations only: copy the needed prepared upstream artifacts into a writable `/tmp` tree and install from there, or manually copy the prepared shared and static libraries, generated headers, pkg-config file, CMake config and export files, and public headers into `/usr/local/lib`, `/usr/local/lib/pkgconfig`, `/usr/local/lib/cmake/json-c`, and `/usr/local/include/json-c`.
+      - In either staging implementation, `original-source` must not call `cmake -S "$ROOT/original"`, `cmake --build`, `cmake --install`, `make`, `ninja`, or the upstream install script inside the container.
+      - Do not substitute `build-check/` metadata for the upstream baseline, do not reuse `build-check/json-c-targets.cmake` or other safe-generated install metadata, and do not synthesize replacement upstream CMake targets.
+      - The `original-source` path must fail if it falls back to rebuilding the upstream baseline or resolves the distro `json-c` instead of the staged prepared artifacts.
+      - Add the concrete Ubuntu 24.04 direct dependents `ndctl` and `daxctl`. Both binaries come from the `ndctl` source package, both depend on `libjson-c5`, and the source package Build-Depends on `libjson-c-dev`.
+      - Give both new inventory entries the same field set and evidence quality as the existing 10 entries: `name`, `source_package`, `category`, `dependency_paths`, `runtime_functionality`, and `evidence`.
+      - Update the Docker `apt-get install` list in `test-original.sh` so the new applications are available in the runtime container.
+      - Update `assert_dependents_inventory()` so the hard-coded expected inventory matches the 12-entry JSON file exactly.
+      - Add `test_ndctl()` and `test_daxctl()` helpers. Each helper must assert that the chosen executable resolves the selected `libjson-c.so.5` through `assert_uses_selected_json_c`, use a read-only Ubuntu 24.04 `list`-style command that emits valid JSON even when no supported devices are present, validate the result shape with `jq`, accept documented empty JSON shapes, reject non-JSON output, and emit useful diagnostics on failure.
+      - Keep `test-original.sh` as the single public dependent-runtime entrypoint. Do not split the matrix into a second public script.
+
+      Success Criteria
+      - `dependents.json` contains exactly 12 entries and stays in sync with `assert_dependents_inventory()` in `test-original.sh`.
+      - `./test-original.sh --mode original-source` stages the upstream baseline from prepared artifacts only, never rebuilds `original/` inside Docker, and fails if the prepared export directory is ambiguous or the container resolves the wrong `json-c`.
+      - The staged upstream baseline includes the real upstream `json-c-targets*.cmake` files from `original/build/CMakeFiles/Export/`, treats `original/build/cmake_install.cmake` as a manifest only, and does not borrow safe-generated metadata from `build-check/`.
+      - The two new runtime tests are deterministic, read-only, hardware-independent, and reject non-JSON output while accepting documented empty JSON shapes.
+      - This phase remains inventory and harness work only.
+      - Commit the completed work to git before yielding. Create a normal commit, do not amend old commits, and do not include unrelated files.
+  - id: verify_01_dependent_inventory_script
+    type: script
+    bounce_target: impl_01_expand_dependent_inventory
+    run: |-
+      set -eu
+      jq '.dependents | length' dependents.json
+      jq -r '.dependents[].name' dependents.json
+      ./test-original.sh --mode original-source
+  - id: check_01_software_tester
+    type: check
+    bounce_target: impl_01_expand_dependent_inventory
+    prompt: |-
+      Reviewer role: Software Tester.
+
+      Review the current workspace for phase `impl_01_expand_dependent_inventory`. Do not modify files.
+
+      Verify all of the following
+      - `dependents.json` contains exactly 12 entries, preserves the existing schema and metadata style, and keeps `generated_on` current.
+      - The new `ndctl` and `daxctl` entries use the same field set and evidence quality as the existing inventory.
+      - `assert_dependents_inventory()` and the JSON file stay exactly in sync.
+      - `test-original.sh --mode original-source` stages only the prepared upstream install surface and does not rebuild `original/` or silently resolve the distro `json-c`.
+      - The `original-source` staging path uses the real upstream `json-c-targets*.cmake` export files and does not borrow `build-check/` metadata or synthesize replacements.
+      - The new runtime checks for `ndctl` and `daxctl` are deterministic, read-only, validate JSON with `jq`, accept documented empty JSON shapes, and reject non-JSON output with useful diagnostics.
+      - `test-original.sh` remains the single public dependent-runtime entrypoint.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+  - id: check_01_senior_tester
+    type: check
+    bounce_target: impl_01_expand_dependent_inventory
+    prompt: |-
+      Reviewer role: Senior Tester.
+
+      Review the current workspace for phase `impl_01_expand_dependent_inventory`. Do not modify files.
+
+      Verify all of the following
+      - The phase remains inventory and runtime-harness work only and does not absorb safe-library runtime fixes that belong to phase 4.
+      - The upstream baseline is artifact-driven: prepared files from `original/` and `original/build/` are staged in place, `original/build/cmake_install.cmake` is used only as a manifest, and no upstream rebuild is reintroduced.
+      - The implementation resolves exactly one prepared export directory under `original/build/CMakeFiles/Export/` and fails on ambiguity instead of guessing.
+      - The harness does not use `build-check/` metadata as an upstream substitute and does not synthesize upstream CMake targets.
+      - The runtime matrix stays linear and representative, with `test-original.sh` kept as the single public entrypoint.
+      - Ubuntu 24.04 package selection for `ndctl` and `daxctl` is correct and the tests are hardware-independent.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+
+  - id: impl_02_compile_dependent_matrix
+    bounce_target: null
+    prompt: |-
+      Role: Software engineer implementing phase `impl_02_compile_dependent_matrix`.
+
+      Objective
+      Compile every `dependents.json` application against the selected json-c implementation from within the existing Docker harness.
+
+      Preexisting Inputs
+      - `dependents.json`
+      - `test-original.sh`
+      - `original/`
+      - `original/build/`
+      - `original/build/cmake_install.cmake`
+      - `original/build/CMakeFiles/Export/`
+      - `original/build/libjson-c.so`
+      - `original/build/libjson-c.so.5`
+      - `original/build/libjson-c.so.5.3.0`
+      - `original/build/libjson-c.a`
+      - `original/build/json-c.pc`
+      - `original/build/json-c-config.cmake`
+      - `original/build/json.h`
+      - `original/build/json_config.h`
+      - `safe/tools/build-debs.sh`
+      - `safe/debian/tests/unit-test`
+      - The existing BlueZ source-build logic already present in `test-original.sh`
+
+      New Outputs
+      - `test-original.sh` support for explicit dependent `compile`, `runtime`, and `all` modes
+      - Optional single-dependent reproduction support such as `--only <dependent-name-or-source-package>`
+      - Per-dependent compile helpers that build real json-c-using binaries or plugins inside the Ubuntu 24.04 container
+      - Deterministic compile-time failure output that identifies the dependent, source package, selected json-c implementation, and the built artifact path that should link to it
+
+      Expected File Changes
+      - Modify `test-original.sh`
+      - Modify `dependents.json` only if lightweight compile hints are genuinely required and do not change the inventory's public purpose
+
+      Required Work
+      - Keep the workflow linear and explicit. The verifier IDs for this phase are fixed as `verify_02_dependent_compile_script`, `check_02_software_tester`, and `check_02_senior_tester`; do not invent new verifier topology.
+      - Treat the planning IDs in this prompt as distinct from the stable CTest verifier names already present under `safe/`. Do not rename existing automation to match planning IDs.
+      - Consume the prepared artifacts already present in `dependents.json`, `test-original.sh`, `original/`, `original/build/`, `safe/tools/build-debs.sh`, and `safe/debian/tests/unit-test`. Do not refetch, rediscover, recollect, or regenerate those inputs from scratch.
+      - Establish the missing source-compatibility harness and the authoritative `original-source` downstream-build baseline here. Verify this phase against `original-source`; safe-package compile failures discovered here belong to phase 3.
+      - Extend `test-original.sh` with `--checks runtime|compile|all`. Keep `--mode safe|safe-package|original-source` and `--package-dir` intact.
+      - Default `--checks` behavior must remain equivalent to `runtime` so existing callers keep working until phase 6 updates the umbrella verifier.
+      - `--checks all` must run compile helpers first and runtime helpers second in the same container session and against the same selected json-c installation.
+      - If `--only` is added, it must accept the display name or source package name used in `dependents.json`.
+      - Preserve `test-original.sh` as the single public entrypoint for dependent compile and runtime verification. If needed, factor common code into sourced helpers, but keep orchestration and CLI parsing in `test-original.sh`.
+      - Add reusable helpers for fetching source packages into a writable `/tmp` tree, installing build dependencies with `apt-get build-dep`, running the package-native build system with a minimal deterministic target list, and verifying that the produced binary or plugin resolves the selected `libjson-c.so.5` with `ldd` or `readelf -d`.
+      - For `original-source` mode, reuse the phase 1 install-only staging path and make the selected `/usr/local` json-c win even after distro development packages are installed.
+      - Force the chosen implementation through `PKG_CONFIG_PATH`, `CMAKE_PREFIX_PATH`, `CPPFLAGS`, `LDFLAGS`, `LIBRARY_PATH`, and `LD_LIBRARY_PATH` as needed, and fail if `pkg-config`, `cmake`, the built artifact, or the harness logs show a rebuild or resolution of the wrong json-c.
+      - For any downstream build that calls `find_package(json-c CONFIG)`, point `CMAKE_PREFIX_PATH` or `json-c_DIR` at the staged upstream `/usr/local/lib/cmake/json-c` that contains `original/build/json-c-config.cmake` plus the copied upstream `json-c-targets*.cmake` files from `original/build/CMakeFiles/Export/`.
+      - Do not synthesize replacement CMake targets and do not substitute `build-check/` metadata for the upstream baseline.
+      - Compile a concrete json-c-using artifact for every inventory entry: `named`, `zebra`, `sway`, `ogrinfo` and `ogr2ogr` or the smallest GeoJSON-exercising GDAL target set, `nvme`, `mesh/bluetooth-meshd`, `tools/mesh-cfgclient`, `syslog-ng`, `libjson-plugin.so`, `ttyd`, `tlog-rec`, `json-encode.pd_linux`, `json-decode.pd_linux`, `ndctl`, and `daxctl`.
+      - If Ubuntu 24.04 produces a different json-c-linked artifact path than the canonical name above, use the actual Noble artifact path and print it in the helper output.
+      - Prefer each source package's native build system or Debian rules. Full package builds are acceptable when targeted builds are too brittle; if so, use `DEB_BUILD_OPTIONS=nocheck nodoc`.
+      - The compile phase must not rely on runtime behavior beyond what is needed to prove the built artifact and its linkage.
+
+      Success Criteria
+      - Adding `--checks` is purely additive: the existing `--mode` and `--package-dir` contract remains intact, and default invocation behavior stays equivalent to `runtime`.
+      - Every `dependents.json` entry has a corresponding compile helper or data-driven recipe.
+      - The compile matrix fails fast on the first broken dependent and prints the built artifact path plus the selected `libjson-c.so.5`.
+      - The harness makes the selected json-c implementation win over any distro development package installed as a build dependency.
+      - Any CMake-based dependent in `original-source` mode uses the staged upstream `json-c-config.cmake` plus the copied upstream `json-c-targets*.cmake` files, not synthesized metadata and not `build-check/`.
+      - The `original-source` compile verifier still consumes the prepared upstream baseline and does not reintroduce original-library recompilation.
+      - The compile phase stays distinct from runtime testing and from `safe/debian/tests/unit-test`.
+      - Commit the completed work to git before yielding. Create a normal commit, do not amend old commits, and do not include unrelated files.
+  - id: verify_02_dependent_compile_script
+    type: script
+    bounce_target: impl_02_compile_dependent_matrix
+    run: |-
+      set -eu
+      ./test-original.sh --mode original-source --checks compile
+  - id: check_02_software_tester
+    type: check
+    bounce_target: impl_02_compile_dependent_matrix
+    prompt: |-
+      Reviewer role: Software Tester.
+
+      Review the current workspace for phase `impl_02_compile_dependent_matrix`. Do not modify files.
+
+      Verify all of the following
+      - `test-original.sh` now supports `--checks runtime|compile|all`, while preserving `--mode` and `--package-dir`.
+      - The default invocation path remains equivalent to `runtime`.
+      - The compile matrix covers every `dependents.json` entry with a concrete built artifact or data-driven compile recipe.
+      - Failure output is actionable and identifies the dependent, source package, selected json-c implementation, and built artifact path.
+      - `--checks all` runs compile helpers before runtime helpers in the same container session and against the same selected json-c installation.
+      - Any optional `--only` mode, if present, accepts either the dependent display name or the source package name from `dependents.json`.
+      - The harness fails when downstream tools resolve or rebuild the wrong json-c instead of silently succeeding.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+  - id: check_02_senior_tester
+    type: check
+    bounce_target: impl_02_compile_dependent_matrix
+    prompt: |-
+      Reviewer role: Senior Tester.
+
+      Review the current workspace for phase `impl_02_compile_dependent_matrix`. Do not modify files.
+
+      Verify all of the following
+      - This phase is a real source-compatibility harness, not a duplicate of package smoke tests or runtime checks.
+      - `original-source` mode reuses the phase 1 install-only upstream staging path and does not reintroduce upstream rebuilds.
+      - The selected json-c implementation is forced through the expected environment variables and wins over any distro development package installed as a build dependency.
+      - Any dependent that uses `find_package(json-c CONFIG)` is pointed at the staged upstream `json-c-config.cmake` plus the copied upstream `json-c-targets*.cmake` files.
+      - The harness does not synthesize replacement CMake targets and does not substitute `build-check/` metadata for the upstream baseline.
+      - Native build systems or Debian rules are used appropriately, with full package builds only when targeted builds are too brittle.
+      - The compile phase stays distinct from `safe/debian/tests/unit-test` and from runtime verification.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+
+  - id: impl_03_abi_package_fixups
+    bounce_target: null
+    prompt: |-
+      Role: Software engineer implementing phase `impl_03_abi_package_fixups`.
+
+      Objective
+      Repair header, symbol, pkg-config, CMake, and Debian package issues surfaced by the safe-package compile matrix.
+
+      Preexisting Inputs
+      - `dependents.json`
+      - `test-original.sh`
+      - `safe/CMakeLists.txt`
+      - `safe/json-c.pc.in`
+      - `safe/cmake/Config.cmake.in`
+      - `safe/abi/public-api-manifest.tsv`
+      - `safe/src/abi.rs`
+      - `safe/src/exports.rs`
+      - `safe/include/json-c/`
+      - `safe/debian/control`
+      - `safe/debian/libjson-c5.symbols`
+      - `safe/debian/tests/unit-test`
+      - `safe/tests/package/`
+      - `safe/tools/check-layout.sh`
+      - `safe/tools/check-static-archive.sh`
+      - `safe/tools/check-symbols.sh`
+      - `safe/tools/header-abi-audit.sh`
+      - `safe/tools/relink-original-tests.sh`
+      - `safe/tools/build-debs.sh`
+      - `original/json-c.sym`
+      - `original/build/`
+      - `build-check/`
+
+      New Outputs
+      - Corrected install metadata and Debian package behavior for the safe packages
+      - Focused package-consumer regressions for deterministic reproduction of compile failures
+      - A safe-package compile matrix that passes for all 12 dependents
+
+      Expected File Changes
+      - Modify `safe/CMakeLists.txt`
+      - Modify `safe/json-c.pc.in`
+      - Modify `safe/cmake/Config.cmake.in`
+      - Modify `safe/abi/public-api-manifest.tsv`
+      - Modify affected headers under `safe/include/json-c/`
+      - Modify `safe/src/abi.rs`
+      - Modify `safe/src/exports.rs`
+      - Modify `safe/debian/control`
+      - Modify `safe/debian/libjson-c5.symbols`
+      - Modify `safe/debian/tests/unit-test`
+      - Modify affected files under `safe/tests/package/`
+      - Modify `safe/tools/build-debs.sh`, `safe/tools/check-layout.sh`, `safe/tools/check-static-archive.sh`, `safe/tools/check-symbols.sh`, `safe/tools/header-abi-audit.sh`, or `safe/tools/relink-original-tests.sh` only when needed to keep the existing entrypoints authoritative
+
+      Required Work
+      - Keep the workflow linear and explicit. The verifier IDs for this phase are fixed as `verify_03_abi_package_script`, `verify_03_relink_script`, `check_03_software_tester`, and `check_03_senior_tester`; do not invent new verifier topology.
+      - Treat the planning IDs in this prompt as distinct from the stable CTest verifier names already present under `safe/`. Do not rename existing automation to match planning IDs.
+      - Consume the prepared artifacts already present in `test-original.sh`, `safe/`, `original/build/`, and `build-check/`. Do not refetch, rediscover, recollect, or regenerate those inputs from scratch, and do not overwrite `original/build/` or `build-check/`.
+      - Preserve the shared and static split already encoded in `safe/CMakeLists.txt`, `safe/abi/public-api-manifest.tsv`, and `original/json-c.sym`.
+      - Keep `array_list_insert_idx()` static-only. It must remain available from `libjson-c.a` and through installed headers, but it must not become a new shared export.
+      - Preserve the exported data symbols `json_number_chars` and `json_hex_chars`, and keep their manifest provenance and Debian symbol versions aligned.
+      - If dependent builds reveal missing or incorrect link flags, update `json-c.pc` `Libs.private`, `json-c::json-c-static` imported-target metadata, or Debian package contents and autopkgtest behavior as appropriate.
+      - If dependent builds reveal missing or mismatched declarations, update the installed headers, the public API manifest, and the exported wrappers together. Do not paper over a header problem only in the harness.
+      - If a compile failure is generic to package consumers, encode it into `safe/tests/package/` or `safe/debian/tests/unit-test` instead of leaving it only as an application-level failure.
+      - Keep generated `json.h` and `json_config.h` matching either `build-check/` or `original/build/`, as already enforced by `safe/tools/header-abi-audit.sh`.
+      - Keep link compatibility intact by continuing to consume the prepared upstream `link.txt` files and objects in `safe/tools/relink-original-tests.sh`.
+      - Keep `safe/debian/tests/unit-test` as the package-smoke entrypoint. Extend it in place instead of inventing a second package-smoke stack.
+      - In `safe-package` mode, `test-original.sh` must continue to install the built packages and invoke `safe/debian/tests/unit-test` exactly once before downstream compile or runtime checks begin.
+      - Phase 3 owns safe-package compile compatibility. Do not bounce those failures back into phase 2.
+
+      Success Criteria
+      - The staged shared object exports exactly the version-script surface from `original/json-c.sym`.
+      - The explicit layout check runs in this phase because ABI-bearing files can change here.
+      - `safe/debian/tests/unit-test` still exercises installed artifacts only and remains the package-smoke entrypoint.
+      - The safe-package compile matrix no longer fails for metadata, header, or install-surface reasons.
+      - Commit the completed work to git before yielding. Create a normal commit, do not amend old commits, and do not include unrelated files.
+  - id: verify_03_abi_package_script
+    type: script
+    bounce_target: impl_03_abi_package_fixups
+    run: |-
+      set -eu
+      cmake -S safe -B safe/build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/tmp/libjson-safe-stage -DCMAKE_INSTALL_LIBDIR=lib
+      cmake --build safe/build -j"$(nproc)"
+      cmake --install safe/build
+      ./safe/tools/check-layout.sh ./safe/build
+      ./safe/tools/header-abi-audit.sh ./safe/abi/public-api-manifest.tsv /tmp/libjson-safe-stage/include/json-c ./original/json-c.sym ./safe/debian/libjson-c5.symbols
+      ./safe/tools/check-symbols.sh /tmp/libjson-safe-stage/lib/libjson-c.so.5.3.0 ./build-check/libjson-c.so.5.3.0
+      ./safe/tools/check-static-archive.sh /tmp/libjson-safe-stage
+      tmpdir="$(mktemp -d)"
+      cp -a . "$tmpdir/work"
+      ./safe/tools/build-debs.sh --workspace "$tmpdir/work" --out "$tmpdir/debs"
+      ./test-original.sh --mode safe-package --checks compile --package-dir "$tmpdir/debs"
+  - id: verify_03_relink_script
+    type: script
+    bounce_target: impl_03_abi_package_fixups
+    run: |-
+      set -eu
+      ./safe/tools/relink-original-tests.sh --build safe/build --all
+  - id: check_03_software_tester
+    type: check
+    bounce_target: impl_03_abi_package_fixups
+    prompt: |-
+      Reviewer role: Software Tester.
+
+      Review the current workspace for phase `impl_03_abi_package_fixups`. Do not modify files.
+
+      Verify all of the following
+      - The safe-package compile matrix now passes for all 12 dependents for metadata, header, and install-surface reasons.
+      - The staged install, layout, header ABI, symbol, and static-archive checks are all represented by the workspace changes and remain authoritative.
+      - Generic package-consumer failures are captured in `safe/tests/package/` or `safe/debian/tests/unit-test` rather than being left only as application-level reproducers.
+      - `safe/debian/tests/unit-test` remains the single package-smoke entrypoint and `test-original.sh --mode safe-package` still invokes it exactly once before downstream checks.
+      - Generated `json.h` and `json_config.h` remain aligned with the expected baseline.
+      - Prepared artifacts in `original/build/` and `build-check/` were consumed in place instead of being regenerated.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+  - id: check_03_senior_tester
+    type: check
+    bounce_target: impl_03_abi_package_fixups
+    prompt: |-
+      Reviewer role: Senior Tester.
+
+      Review the current workspace for phase `impl_03_abi_package_fixups`. Do not modify files.
+
+      Verify all of the following
+      - The shared and static library split remains correct, with the shared object exporting exactly the version-script surface from `original/json-c.sym`.
+      - `array_list_insert_idx()` stays static-only and available from `libjson-c.a` and installed headers without becoming a new shared export.
+      - The exported data symbols `json_number_chars` and `json_hex_chars` remain present and have aligned manifest provenance and Debian symbol versions.
+      - Header, manifest, and wrapper updates were made together when declarations changed instead of being papered over in the harness.
+      - `json-c.pc`, `json-c::json-c-static`, Debian package contents, and autopkgtest behavior remain compatible for package consumers.
+      - Link compatibility still depends on the prepared upstream objects and `safe/tools/relink-original-tests.sh`, not a new relink model.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+
+  - id: impl_04_runtime_regression_fixups
+    bounce_target: null
+    prompt: |-
+      Role: Software engineer implementing phase `impl_04_runtime_regression_fixups`.
+
+      Objective
+      Reproduce and fix runtime compatibility issues in the Rust implementation while preserving upstream semantics and relink compatibility.
+
+      Preexisting Inputs
+      - `dependents.json`
+      - `test-original.sh`
+      - `safe/tools/build-debs.sh`
+      - `safe/src/object.rs`
+      - `safe/src/serializer.rs`
+      - `safe/src/linkhash.rs`
+      - `safe/src/tokener.rs`
+      - `safe/src/util.rs`
+      - `safe/src/pointer.rs`
+      - `safe/src/patch.rs`
+      - `safe/src/visit.rs`
+      - `safe/src/iterators.rs`
+      - `safe/src/errors.rs`
+      - `safe/src/locale.rs`
+      - `safe/src/numeric.rs`
+      - `safe/src/utf8.rs`
+      - `safe/src/exports.rs`
+      - `safe/tests/upstream/`
+      - `safe/tests/foundation/`
+      - `safe/tests/package/`
+      - `safe/tests/security/hash_collision.c`
+      - `safe/tools/relink-original-tests.sh`
+      - `safe/tools/run-upstream-tests.sh`
+
+      New Outputs
+      - Deterministic regressions for runtime incompatibilities discovered by the application matrix or upstream tests
+      - Corrected Rust implementations in the affected runtime modules
+      - A green 12-application runtime matrix against the packaged safe library
+
+      Expected File Changes
+      - Modify affected runtime modules under `safe/src/`, with likely hotspots in `safe/src/object.rs`, `safe/src/serializer.rs`, `safe/src/linkhash.rs`, `safe/src/tokener.rs`, `safe/src/util.rs`, `safe/src/pointer.rs`, `safe/src/patch.rs`, `safe/src/visit.rs`, `safe/src/iterators.rs`, `safe/src/errors.rs`, `safe/src/locale.rs`, `safe/src/numeric.rs`, and `safe/src/utf8.rs`
+      - Modify `safe/src/exports.rs` only if wrapper signatures or forwarding logic must change with the fix
+      - Modify existing files under `safe/tests/upstream/` or add focused new regression sources there
+      - Modify `safe/tests/upstream/CMakeLists.txt` only if new focused C regressions need to be wired in
+      - Modify `safe/tests/package/` only for installed-package consumer regressions
+      - Modify `test-original.sh` only when the only reproducible failure is application-level
+
+      Required Work
+      - Keep the workflow linear and explicit. The verifier IDs for this phase are fixed as `verify_04_upstream_runtime_script`, `verify_04_dependent_runtime_script`, `check_04_software_tester`, and `check_04_senior_tester`; do not invent new verifier topology.
+      - Treat the planning IDs in this prompt as distinct from the stable CTest verifier names already present under `safe/`. Do not rename existing automation to match planning IDs.
+      - Consume the prepared artifacts already present in `test-original.sh`, `safe/src/`, `safe/tests/`, and the existing relink and upstream-test harnesses. Do not refetch, rediscover, recollect, or regenerate those inputs from scratch.
+      - Start with the highest-risk functions: `json_object_object_add_ex_impl()`, `json_object_set_double_impl()`, `json_object_get_string_impl()`, `json_object_new_null_impl()`, `json_object_deep_copy_impl()`, `json_tokener_parse_ex_impl()`, `json_object_from_fd_ex_impl()`, `json_pointer_get_internal_impl()`, `json_pointer_set_with_array_cb_impl()`, `json_patch_apply_impl()`, and `lh_table_new_impl()` plus the hashing and resize path.
+      - Any runtime issue discovered in an application must become a deterministic regression.
+      - Prefer a small C reproducer under `safe/tests/upstream/` when the behavior can be isolated outside the full Docker harness.
+      - If the issue is generic to installed package consumers, place the reproducer under `safe/tests/package/`.
+      - If the issue only manifests in the full application harness, tighten the relevant assertion in `test-original.sh`.
+      - Preserve existing upstream expected outputs while extending coverage. Do not weaken expectations to make the Rust port pass.
+      - Keep relink compatibility intact while fixing runtime bugs. Freshly compiled tests passing is not sufficient if relinked original objects fail.
+      - Phase 4 owns safe-package runtime compatibility for the expanded 12-application matrix. Do not bounce those failures back into phase 1.
+
+      Success Criteria
+      - Every application- or test-discovered behavior change now has a checked-in reproducer.
+      - The runtime matrix stays green without weakening existing upstream expectations.
+      - Relink compatibility remains intact while the runtime fixes land.
+      - Commit the completed work to git before yielding. Create a normal commit, do not amend old commits, and do not include unrelated files.
+  - id: verify_04_upstream_runtime_script
+    type: script
+    bounce_target: impl_04_runtime_regression_fixups
+    run: |-
+      set -eu
+      ctest --test-dir safe/build --output-on-failure -R '^(verify_03_object_suite|verify_03_object_relink|verify_04_parser_suite|verify_04_tokener_check|testReplaceExisting|test_json_pointer|test_json_patch|test_util_file|test_visit|test_deep_copy)$'
+  - id: verify_04_dependent_runtime_script
+    type: script
+    bounce_target: impl_04_runtime_regression_fixups
+    run: |-
+      set -eu
+      tmpdir="$(mktemp -d)"
+      cp -a . "$tmpdir/work"
+      ./safe/tools/build-debs.sh --workspace "$tmpdir/work" --out "$tmpdir/debs"
+      ./test-original.sh --mode safe-package --checks runtime --package-dir "$tmpdir/debs"
+  - id: check_04_software_tester
+    type: check
+    bounce_target: impl_04_runtime_regression_fixups
+    prompt: |-
+      Reviewer role: Software Tester.
+
+      Review the current workspace for phase `impl_04_runtime_regression_fixups`. Do not modify files.
+
+      Verify all of the following
+      - Every runtime issue discovered through applications or upstream suites gained a deterministic checked-in reproducer before or with the fix.
+      - Small C reproducers were preferred under `safe/tests/upstream/` when possible, while installed-package consumer regressions were placed under `safe/tests/package/`.
+      - `test-original.sh` was tightened only when the failure is truly application-level and cannot be isolated more directly.
+      - The 12-application runtime matrix passes against the packaged safe library.
+      - Existing upstream expected outputs were preserved rather than weakened to fit the Rust implementation.
+      - Relink compatibility remains intact while the runtime fixes land.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+  - id: check_04_senior_tester
+    type: check
+    bounce_target: impl_04_runtime_regression_fixups
+    prompt: |-
+      Reviewer role: Senior Tester.
+
+      Review the current workspace for phase `impl_04_runtime_regression_fixups`. Do not modify files.
+
+      Verify all of the following
+      - The highest-risk runtime paths were addressed appropriately, especially object ownership, serializer behavior, parser and tokener logic, pointer and patch semantics, visit and iterator behavior, numeric handling, locale behavior, UTF-8 handling, and linkhash resize or hashing paths.
+      - Wrapper changes in `safe/src/exports.rs`, if any, are limited to signature or forwarding fixes that match the runtime corrections.
+      - Runtime bug fixes preserve upstream semantics rather than adding Rust-specific behavior.
+      - Freshly compiled tests and relinked original objects both remain green; relink compatibility was not sacrificed for unit-test success.
+      - Safe-package runtime compatibility for the expanded 12-application matrix is owned here and is not pushed back into phase 1.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+
+  - id: impl_05_reduce_unsafe
+    bounce_target: null
+    prompt: |-
+      Role: Software engineer implementing phase `impl_05_reduce_unsafe`.
+
+      Objective
+      Confine unsafe Rust to unavoidable FFI and raw-layout boundaries, and make the safety review stricter than the current clippy-plus-stub smoke.
+
+      Preexisting Inputs
+      - `safe/src/`
+      - `safe/CMakeLists.txt`
+      - `safe/tools/full-verify.sh`
+      - `safe/abi/public-api-manifest.tsv`
+      - The existing `verify_07_safety_review` CTest target in `safe/CMakeLists.txt`
+      - `safe/tests/upstream/`
+      - `safe/tests/foundation/`
+      - `safe/tests/security/hash_collision.c`
+      - `safe/tools/check-layout.sh`
+      - `safe/tools/relink-original-tests.sh`
+      - `original/build/`
+      - `build-check/`
+      - `all_cves.json`
+      - `relevant_cves.json`
+
+      New Outputs
+      - Reduced and better-contained unsafe usage across the Rust implementation
+      - `safe/abi/unsafe-audit.tsv` documenting every remaining unsafe site and its allowed category
+      - `safe/tools/check-unsafe.sh` enforcing the checked-in unsafe policy
+      - A strengthened `verify_07_safety_review` target that runs the unsafe audit plus `cargo clippy --all-targets -- -D warnings`
+
+      Expected File Changes
+      - Modify affected modules under `safe/src/`
+      - Modify `safe/CMakeLists.txt`
+      - Add or modify `safe/tools/check-unsafe.sh`
+      - Add or modify `safe/abi/unsafe-audit.tsv`
+
+      Required Work
+      - Keep the workflow linear and explicit. The verifier IDs for this phase are fixed as `verify_05_safety_script`, `check_05_software_tester`, and `check_05_senior_tester`; do not invent new verifier topology.
+      - Treat the planning IDs in this prompt as distinct from the stable CTest verifier names already present under `safe/`. Do not rename existing automation to match planning IDs.
+      - Consume the prepared artifacts already present in `safe/src/`, `safe/CMakeLists.txt`, `safe/tools/full-verify.sh`, `original/build/`, `build-check/`, `all_cves.json`, and `relevant_cves.json`. Do not refetch, rediscover, recollect, or regenerate those inputs from scratch.
+      - Do not chase zero unsafe at any cost. Keep unsafe only where ABI interop, raw layout access, or unavoidable C-library boundaries genuinely require it.
+      - Reduce unsafe by pushing raw-pointer manipulation into the smallest practical internal helpers and keeping exported `extern "C"` wrappers thin.
+      - Prefer safe `Vec`, slice, `Box`, iterator, and string handling inside module internals whenever the ABI does not force raw pointer arithmetic.
+      - Restrict unavoidable unsafe to the allowed categories: `ffi-entrypoint`, `ffi-callback`, `repr-c-layout`, `ownership-transfer`, `libc-call`, and `variadic-shim`.
+      - The checked-in inventory and `safe/tools/check-unsafe.sh` must fail on undocumented unsafe usage, out-of-policy categories, or stale line mappings.
+      - Strengthen the existing `verify_07_safety_review` target instead of inventing a parallel safety pipeline.
+      - Preserve the collision-hardening path in `safe/src/linkhash.rs` and the adversarial regression in `safe/tests/security/hash_collision.c` while refactoring.
+      - Because this phase can touch ABI-bearing and parser or runtime code, rerun focused layout and compatibility smoke alongside the safety audit.
+
+      Success Criteria
+      - The unsafe count decreases materially from the current 369-site baseline, or any non-decreasing area is justified by a specific ABI need and recorded in `safe/abi/unsafe-audit.tsv`.
+      - The strengthened safety review fails on undocumented unsafe usage instead of silently accepting it.
+      - The safety refactors do not break already-green layout, relink, parser, object, or collision coverage.
+      - Commit the completed work to git before yielding. Create a normal commit, do not amend old commits, and do not include unrelated files.
+  - id: verify_05_safety_script
+    type: script
+    bounce_target: impl_05_reduce_unsafe
+    run: |-
+      set -eu
+      ctest --test-dir safe/build --output-on-failure -R '^verify_07_safety_review$'
+      ctest --test-dir safe/build --output-on-failure -R '^(verify_02_layout_check|verify_03_object_suite|verify_03_object_relink|verify_04_parser_suite|verify_04_tokener_check|hash_collision)$'
+      rg -n '\bunsafe\b' safe/src safe/tests
+  - id: check_05_software_tester
+    type: check
+    bounce_target: impl_05_reduce_unsafe
+    prompt: |-
+      Reviewer role: Software Tester.
+
+      Review the current workspace for phase `impl_05_reduce_unsafe`. Do not modify files.
+
+      Verify all of the following
+      - Unsafe usage is materially reduced from the baseline, or any non-decreasing area is explicitly justified by an ABI need in `safe/abi/unsafe-audit.tsv`.
+      - `safe/abi/unsafe-audit.tsv` documents every remaining unsafe site and its allowed category.
+      - `safe/tools/check-unsafe.sh` fails on undocumented unsafe usage, out-of-policy categories, or stale line mappings.
+      - `verify_07_safety_review` is strengthened in place rather than replaced by a parallel safety pipeline.
+      - Focused compatibility smoke for layout, relink, parser, object, and collision coverage remains in scope after the unsafe reductions.
+      - Safety refactors did not reintroduce compatibility regressions.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+  - id: check_05_senior_tester
+    type: check
+    bounce_target: impl_05_reduce_unsafe
+    prompt: |-
+      Reviewer role: Senior Tester.
+
+      Review the current workspace for phase `impl_05_reduce_unsafe`. Do not modify files.
+
+      Verify all of the following
+      - Remaining unsafe usage is confined to ABI-necessary boundaries and only uses the allowed categories `ffi-entrypoint`, `ffi-callback`, `repr-c-layout`, `ownership-transfer`, `libc-call`, and `variadic-shim`.
+      - Raw-pointer manipulation is pushed into the smallest practical internal helpers and exported `extern "C"` wrappers remain thin.
+      - Safe container, iterator, and string handling replaced avoidable unsafe within module internals.
+      - The checked-in audit inventory maps cleanly to the current source and does not hide undocumented unsafe sites.
+      - Collision-hardening in `safe/src/linkhash.rs` and the adversarial regression in `safe/tests/security/hash_collision.c` were preserved while refactoring.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+
+  - id: impl_06_final_hardening
+    bounce_target: null
+    prompt: |-
+      Role: Software engineer implementing phase `impl_06_final_hardening`.
+
+      Objective
+      Integrate the downstream compile matrix into the umbrella verifier, fix any last combined-run regressions, and finish the drop-in replacement workflow.
+
+      Preexisting Inputs
+      - `dependents.json`
+      - `test-original.sh`
+      - `safe/tools/full-verify.sh`
+      - `safe/tools/build-debs.sh`
+      - `safe/tools/check-layout.sh`
+      - `safe/tools/check-static-archive.sh`
+      - `safe/tools/check-symbols.sh`
+      - `safe/tools/header-abi-audit.sh`
+      - `safe/tools/relink-original-tests.sh`
+      - `safe/tools/run-upstream-tests.sh`
+      - `safe/tools/check-unsafe.sh`
+      - `safe/CMakeLists.txt`
+      - `safe/json-c.pc.in`
+      - `safe/cmake/Config.cmake.in`
+      - `safe/abi/public-api-manifest.tsv`
+      - `safe/abi/unsafe-audit.tsv`
+      - `safe/include/json-c/`
+      - `safe/src/`
+      - `safe/debian/tests/unit-test`
+      - `safe/debian/control`
+      - `safe/debian/libjson-c5.symbols`
+      - `safe/tests/upstream/`
+      - `safe/tests/foundation/`
+      - `safe/tests/package/`
+      - `safe/tests/security/hash_collision.c`
+      - `all_cves.json`
+      - `relevant_cves.json`
+      - `original/`
+      - `original/build/`
+      - `original/build/cmake_install.cmake`
+      - `original/build/CMakeFiles/Export/`
+      - `original/json-c.sym`
+      - `build-check/`
+
+      New Outputs
+      - `safe/tools/full-verify.sh` updated to run the full linear compatibility stack, including compile, runtime, layout, relink, package, and safety coverage
+      - Any final combined-run fixes needed in `test-original.sh`, `safe/CMakeLists.txt`, `safe/src/`, or `safe/tests/`
+      - A final workflow-ready verification path that downstream generation can encode directly
+
+      Expected File Changes
+      - Modify `safe/tools/full-verify.sh`
+      - Modify `test-original.sh` if combined compile and runtime orchestration or diagnostics need final cleanup
+      - Modify `safe/CMakeLists.txt` if the umbrella CTest target wiring must follow the new verifier behavior
+      - Modify any remaining affected files under `safe/src/` or `safe/tests/` only for defects found during the full combined run
+
+      Required Work
+      - Keep the workflow linear and explicit. The verifier IDs for this phase are fixed as `verify_06_full_suite_script`, `check_06_software_tester`, and `check_06_senior_tester`; do not invent new verifier topology.
+      - Treat the planning IDs in this prompt as distinct from the stable CTest verifier names already present under `safe/`. Do not rename existing automation to match planning IDs.
+      - Consume the prepared artifacts already present in `test-original.sh`, `safe/tools/full-verify.sh`, `safe/`, `original/`, `original/build/`, and `build-check/`. Do not refetch, rediscover, recollect, or regenerate those inputs from scratch, and do not overwrite `original/build/` or `build-check/`.
+      - This phase owns the generated workflow topology and the fixed workflow contract. Capture every workflow-global rule here so the final split stays complete without scattering structure requirements across unrelated phases.
+      - Keep the generated workflow linear: one top-level ordered phase list, no `parallel_groups`, and no parallel orchestration in the workflow definition.
+      - Keep the generated workflow inline-only and self-contained. Do not use top-level `include`, and do not use phase-level `prompt_file`, `workflow_file`, `workflow_dir`, `checks`, or any other YAML indirection.
+      - Encode every top-level phase explicitly in this fixed order: `impl_01_expand_dependent_inventory`, `verify_01_dependent_inventory_script`, `check_01_software_tester`, `check_01_senior_tester`, `impl_02_compile_dependent_matrix`, `verify_02_dependent_compile_script`, `check_02_software_tester`, `check_02_senior_tester`, `impl_03_abi_package_fixups`, `verify_03_abi_package_script`, `verify_03_relink_script`, `check_03_software_tester`, `check_03_senior_tester`, `impl_04_runtime_regression_fixups`, `verify_04_upstream_runtime_script`, `verify_04_dependent_runtime_script`, `check_04_software_tester`, `check_04_senior_tester`, `impl_05_reduce_unsafe`, `verify_05_safety_script`, `check_05_software_tester`, `check_05_senior_tester`, `impl_06_final_hardening`, `verify_06_full_suite_script`, `check_06_software_tester`, and `check_06_senior_tester`.
+      - Every verifier must be an explicit top-level `script` or `check` phase with one fixed `bounce_target` equal to the implement phase it verifies. Do not use `bounce_targets`.
+      - Every implement prompt must keep `Preexisting Inputs` and `New Outputs` as separate headings and must require a normal git commit before yielding.
+      - The required-input model for the generated workflow must stay concrete and artifact-driven.
+      - Pre-generation plan reviews must inspect the working-tree contents of `.plan/plan.md` and `.plan/findings.md` when present because `.plan/` is excluded by `.git/info/exclude`. This planning-only exception does not relax the git commit requirement for generated implementation phases.
+      - `safe/tools/full-verify.sh` is the canonical implementation of `verify_06_full_suite_script`, and the existing `verify_07_full_suite` CTest target must remain a thin wrapper around that script.
+      - Keep the final verifier linear and artifact-driven. Do not add parallel orchestration.
+      - Do not rebuild Debian packages or recopy the workspace more than once inside the full-suite script.
+      - In `safe-package` mode, `test-original.sh` must install the provided safe Debian packages, invoke `safe/debian/tests/unit-test` exactly once, and then run the requested downstream compile, runtime, or `all` checks without reinstalling or rebuilding packages between check groups.
+      - `safe/tools/full-verify.sh` must execute this ordered stack from the current workspace artifacts: configure `safe/build`; build it; install it to `/tmp/libjson-safe-stage`; run `./safe/tools/check-layout.sh ./safe/build`; run `ctest --test-dir safe/build --output-on-failure -E '^verify_07_full_suite$'`; run `./safe/tools/header-abi-audit.sh ./safe/abi/public-api-manifest.tsv /tmp/libjson-safe-stage/include/json-c ./original/json-c.sym ./safe/debian/libjson-c5.symbols`; run `./safe/tools/check-symbols.sh /tmp/libjson-safe-stage/lib/libjson-c.so.5.3.0 ./build-check/libjson-c.so.5.3.0`; run `./safe/tools/check-static-archive.sh /tmp/libjson-safe-stage`; run `./safe/tools/relink-original-tests.sh --build safe/build --all`; create one temporary copied workspace and one Debian package output directory with `./safe/tools/build-debs.sh --workspace "$tmpdir/work" --out "$tmpdir/debs"`; run `./test-original.sh --mode safe-package --checks all --package-dir "$tmpdir/debs"`; and finally run the existing `run_perf_smoke` step.
+      - The recursive CTest avoidance pattern must exclude only `^verify_07_full_suite$`, not all `verify_07_*`, so the strengthened `verify_07_safety_review` stays in scope while recursion is avoided.
+      - This phase owns defects that appear only when the complete suite runs in one pass. Once the workflow is generated, combined-run failures must bounce only to `impl_06_final_hardening`.
+
+      Success Criteria
+      - The workflow contract stays linear, inline-only, and explicit-phase only, with the fixed 26-phase order encoded directly and no YAML indirection or `bounce_targets`.
+      - The final verifier explicitly covers all five goal properties: source compatibility, link compatibility, runtime compatibility, reasonable safety, and Ubuntu 24.04 packageability.
+      - The explicit layout check is present in the umbrella path and in the final reviewer stack.
+      - The umbrella path excludes only `verify_07_full_suite`, so the strengthened safety review remains in scope.
+      - The downstream compile matrix is part of the end-to-end suite, not a side note.
+      - The packaged safe library builds and installs cleanly on Ubuntu 24.04.
+      - The explicit layout check, header ABI audit, symbol audit, and static-archive audit all pass.
+      - All upstream tests, relinked original test objects, the strengthened safety review, and the adversarial hash-collision coverage pass.
+      - All 12 dependent applications compile against the safe package and pass their runtime checks inside the Docker testbed.
+      - The package smoke still runs through `safe/debian/tests/unit-test`.
+      - The remaining unsafe surface is captured by `safe/abi/unsafe-audit.tsv` and enforced by `safe/tools/check-unsafe.sh`.
+      - Commit the completed work to git before yielding. Create a normal commit, do not amend old commits, and do not include unrelated files.
+  - id: verify_06_full_suite_script
+    type: script
+    bounce_target: impl_06_final_hardening
+    run: |-
+      set -eu
+      ./safe/tools/full-verify.sh
+  - id: check_06_software_tester
+    type: check
+    bounce_target: impl_06_final_hardening
+    prompt: |-
+      Reviewer role: Software Tester.
+
+      Review the current workspace for phase `impl_06_final_hardening`. Do not modify files.
+
+      Verify all of the following
+      - `safe/tools/full-verify.sh` runs the full linear compatibility stack and includes compile, runtime, layout, relink, package, and safety coverage.
+      - The ordered full-suite path includes the explicit layout, header ABI, symbol, and static-archive audits, upstream and relink coverage, one Debian package build, the downstream `--checks all` matrix, and the existing performance smoke.
+      - The recursive CTest exclusion excludes only `^verify_07_full_suite$`, so the strengthened `verify_07_safety_review` remains in scope.
+      - In `safe-package` mode, `test-original.sh` installs the provided Debian packages once, runs `safe/debian/tests/unit-test` exactly once, and then runs downstream compile and runtime checks without reinstalling or rebuilding packages between groups.
+      - The final suite covers source compatibility, link compatibility, runtime compatibility, reasonable safety, and Ubuntu 24.04 packageability.
+      - Combined-run regressions discovered only in the full suite are fixed in this phase rather than deferred elsewhere.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>
+  - id: check_06_senior_tester
+    type: check
+    bounce_target: impl_06_final_hardening
+    prompt: |-
+      Reviewer role: Senior Tester.
+
+      Review the current workspace for phase `impl_06_final_hardening`. Do not modify files.
+
+      Verify all of the following
+      - The final workflow topology is linear and explicit: one ordered phase list, no `include`, no `parallel_groups`, no phase-level `prompt_file`, `workflow_file`, `workflow_dir`, `checks`, and no agent-guided `bounce_targets`.
+      - Every verifier remains an explicit top-level `script` or `check` phase immediately after the implement block it verifies, using only the fixed `bounce_target` value for that block.
+      - The fixed 26-phase order is preserved exactly, with no invented, renamed, or reordered phase IDs.
+      - Implement prompts are self-contained, keep `Preexisting Inputs` and `New Outputs`, and require a normal git commit before yielding.
+      - The workflow remains artifact-driven and self-contained, including the plan-review exception for `.plan/plan.md` and `.plan/findings.md` when present.
+      - `safe/tools/full-verify.sh` remains the canonical implementation of the full-suite script phase and `verify_07_full_suite` remains a thin wrapper around it.
+
+      End with exactly one verdict line:
+      VERDICT: PASS
+      VERDICT: FAIL: <reason>

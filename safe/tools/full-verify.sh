@@ -5,12 +5,11 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 safe_dir="${repo_root}/safe"
 build_dir="${safe_dir}/build"
 stage_root="/tmp/libjson-safe-stage"
-deb_out="${safe_dir}/out/debs"
-deb_workspace=""
+tmp_root=""
 
 usage() {
     cat <<'EOF'
-usage: full-verify.sh [--build-dir <safe/build>] [--stage-root </tmp/libjson-safe-stage>] [--deb-out <safe/out/debs>]
+usage: full-verify.sh [--build-dir <safe/build>] [--stage-root </tmp/libjson-safe-stage>]
 EOF
 }
 
@@ -19,8 +18,8 @@ log_step() {
 }
 
 cleanup() {
-    if [[ -n "${deb_workspace}" && -d "${deb_workspace}" ]]; then
-        rm -rf "${deb_workspace}"
+    if [[ -n "${tmp_root}" && -d "${tmp_root}" ]]; then
+        rm -rf "${tmp_root}"
     fi
 }
 
@@ -109,10 +108,6 @@ while (($#)); do
             stage_root="${2:?missing value for --stage-root}"
             shift 2
             ;;
-        --deb-out)
-            deb_out="${2:?missing value for --deb-out}"
-            shift 2
-            ;;
         --help|-h)
             usage
             exit 0
@@ -130,9 +125,6 @@ if [[ "${build_dir}" != /* ]]; then
 fi
 if [[ "${stage_root}" != /* ]]; then
     stage_root="${repo_root}/${stage_root}"
-fi
-if [[ "${deb_out}" != /* ]]; then
-    deb_out="${repo_root}/${deb_out}"
 fi
 
 log_step "Configuring ${build_dir}"
@@ -153,7 +145,7 @@ log_step "Checking ABI layouts"
 "${safe_dir}/tools/check-layout.sh" "${build_dir}"
 
 log_step "Running CTest suite"
-ctest --test-dir "${build_dir}" --output-on-failure -E '^verify_07_'
+ctest --test-dir "${build_dir}" --output-on-failure -E '^verify_07_full_suite$'
 
 log_step "Auditing header ABI manifest coverage"
 "${safe_dir}/tools/header-abi-audit.sh" \
@@ -174,19 +166,17 @@ log_step "Relinking all prepared original tests against the safe shared object"
 "${safe_dir}/tools/relink-original-tests.sh" --build "${build_dir}" --all
 
 log_step "Building Debian packages from a writable workspace copy"
-deb_workspace="$(mktemp -d /tmp/libjson-safe-workspace.XXXXXX)"
-rm -rf "${deb_out}"
-mkdir -p "${deb_out}"
-cp -a "${repo_root}/." "${deb_workspace}/"
+tmp_root="$(mktemp -d /tmp/libjson-full-verify.XXXXXX)"
+cp -a "${repo_root}/." "${tmp_root}/work"
 "${safe_dir}/tools/build-debs.sh" \
-    --workspace "${deb_workspace}" \
-    --out "${deb_out}"
+    --workspace "${tmp_root}/work" \
+    --out "${tmp_root}/debs"
 
 log_step "Installing the built packages in the Ubuntu 24.04 testbed"
-"${repo_root}/test-original.sh" --mode safe --package-dir "${deb_out}"
-
-log_step "Re-running the dedicated adversarial hash-collision test"
-ctest --test-dir "${build_dir}" --output-on-failure -R '^hash_collision$'
+"${repo_root}/test-original.sh" \
+    --mode safe-package \
+    --checks all \
+    --package-dir "${tmp_root}/debs"
 
 run_perf_smoke
 
