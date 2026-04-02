@@ -6,6 +6,7 @@ mod arraylist;
 mod debug;
 mod errors;
 mod linkhash;
+mod mini_json;
 mod numeric;
 mod printbuf;
 mod random_seed;

@@ -318,6 +318,7 @@ add_custom_command(
         ${PROJECT_SOURCE_DIR}/src/debug.rs
         ${PROJECT_SOURCE_DIR}/src/errors.rs
         ${PROJECT_SOURCE_DIR}/src/linkhash.rs
+        ${PROJECT_SOURCE_DIR}/src/mini_json.rs
         ${PROJECT_SOURCE_DIR}/src/numeric.rs
         ${PROJECT_SOURCE_DIR}/src/printbuf.rs
         ${PROJECT_SOURCE_DIR}/src/random_seed.rs
@@ -470,9 +471,13 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
 
     add_test(NAME verify_02_foundation_scripts COMMAND foundation_smoke)
     set_tests_properties(verify_02_foundation_scripts PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+    add_test(NAME foundation_smoke COMMAND foundation_smoke)
+    set_tests_properties(foundation_smoke PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
     add_test(NAME verify_02_layout_check COMMAND ${PROJECT_SOURCE_DIR}/tools/check-layout.sh ${PROJECT_BINARY_DIR})
     set_tests_properties(verify_02_layout_check PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+    add_test(NAME abi_layout COMMAND ${PROJECT_SOURCE_DIR}/tools/check-layout.sh ${PROJECT_BINARY_DIR})
+    set_tests_properties(abi_layout PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
     add_subdirectory(tests/upstream ${PROJECT_BINARY_DIR}/tests)
 endif()
