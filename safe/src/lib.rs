@@ -16,7 +16,7 @@ mod printbuf;
 mod random_seed;
 mod serializer;
 mod strerror;
-pub mod stubs;
+mod exports;
 mod tokener;
 mod util;
 mod utf8;

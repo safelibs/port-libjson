@@ -1,4 +1,4 @@
-// Generated from abi/public-api-manifest.tsv during impl_01_scaffold_surface.
+// C ABI export layer kept in sync with abi/public-api-manifest.tsv.
 #![allow(clippy::missing_safety_doc)]
 #![allow(unused_variables)]
 

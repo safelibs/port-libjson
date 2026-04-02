@@ -4,14 +4,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_TAG="${LIBJSON_ORIGINAL_TEST_IMAGE:-libjson-original-test:ubuntu24.04}"
 MODE="safe-package"
+PACKAGE_DIR=""
 
 usage() {
   cat <<'EOF'
-usage: test-original.sh [--mode safe|safe-package|original-source]
+usage: test-original.sh [--mode safe|safe-package|original-source] [--package-dir <dir>]
 
 safe-package is the default compatibility target; safe is accepted as a
 backward-compatible alias. Use original-source only for baseline comparisons
 against a /usr/local install.
+
+--package-dir reuses prebuilt safe Debian packages instead of rebuilding them
+inside the Ubuntu 24.04 testbed. This option is only valid with safe-package.
 EOF
 }
 
@@ -19,6 +23,10 @@ while (($#)); do
   case "$1" in
     --mode)
       MODE="${2:?missing value for --mode}"
+      shift 2
+      ;;
+    --package-dir)
+      PACKAGE_DIR="${2:?missing value for --package-dir}"
       shift 2
       ;;
     --help|-h)
@@ -48,6 +56,18 @@ case "$MODE" in
     exit 1
     ;;
 esac
+
+if [[ -n "$PACKAGE_DIR" ]]; then
+  PACKAGE_DIR="$(readlink -f "$PACKAGE_DIR")"
+  [[ -d "$PACKAGE_DIR" ]] || {
+    printf 'package directory does not exist: %s\n' "$PACKAGE_DIR" >&2
+    exit 1
+  }
+  [[ "$MODE" == "safe-package" ]] || {
+    echo "--package-dir is only valid with --mode safe-package" >&2
+    exit 1
+  }
+fi
 
 command -v docker >/dev/null 2>&1 || {
   echo "docker is required to run $0" >&2
@@ -110,11 +130,23 @@ RUN sed 's/^Types: deb$/Types: deb-src/' /etc/apt/sources.list.d/ubuntu.sources 
  && rm -rf /var/lib/apt/lists/*
 DOCKERFILE
 
-docker run --rm -i \
-  --cap-add=NET_ADMIN \
-  --cap-add=SYS_ADMIN \
-  -e LIBJSON_TEST_MODE="$MODE" \
-  -v "$ROOT":/work:ro \
+docker_args=(
+  --rm
+  -i
+  --cap-add=NET_ADMIN
+  --cap-add=SYS_ADMIN
+  -e "LIBJSON_TEST_MODE=$MODE"
+  -v "$ROOT":/work:ro
+)
+
+if [[ -n "$PACKAGE_DIR" ]]; then
+  docker_args+=(
+    -e LIBJSON_TEST_PACKAGE_DIR=/packages
+    -v "$PACKAGE_DIR":/packages:ro
+  )
+fi
+
+docker run "${docker_args[@]}" \
   "$IMAGE_TAG" \
   bash -s <<'CONTAINER_SCRIPT'
 set -euo pipefail
@@ -124,6 +156,7 @@ export LC_ALL=C.UTF-8
 
 ROOT=/work
 MODE="${LIBJSON_TEST_MODE:-safe-package}"
+PACKAGE_DIR="${LIBJSON_TEST_PACKAGE_DIR:-}"
 WORKSPACE_COPY=/tmp/libjson-safe-work
 ARTIFACT_DIR=/tmp/libjson-safe-artifacts
 JSON_C_LIBDIR=""
@@ -246,23 +279,33 @@ build_original_json_c() {
 }
 
 build_safe_packages() {
-  log_step "Building safe Debian packages from a writable workspace copy"
+  if [[ -n "$PACKAGE_DIR" ]]; then
+    log_step "Installing prebuilt safe Debian packages"
+  else
+    log_step "Building safe Debian packages from a writable workspace copy"
 
-  rm -rf "$WORKSPACE_COPY" "$ARTIFACT_DIR"
-  mkdir -p "$WORKSPACE_COPY" "$ARTIFACT_DIR"
-  cp -a "$ROOT/." "$WORKSPACE_COPY/"
+    rm -rf "$WORKSPACE_COPY" "$ARTIFACT_DIR"
+    mkdir -p "$WORKSPACE_COPY" "$ARTIFACT_DIR"
+    cp -a "$ROOT/." "$WORKSPACE_COPY/"
 
-  "$WORKSPACE_COPY/safe/tools/build-debs.sh" \
-    --workspace "$WORKSPACE_COPY" \
-    --out "$ARTIFACT_DIR"
+    "$WORKSPACE_COPY/safe/tools/build-debs.sh" \
+      --workspace "$WORKSPACE_COPY" \
+      --out "$ARTIFACT_DIR"
+  fi
+
+  local package_root="${PACKAGE_DIR:-$ARTIFACT_DIR}"
 
   dpkg -i \
-    "$ARTIFACT_DIR"/libjson-c5_*.deb \
-    "$ARTIFACT_DIR"/libjson-c-dev_*.deb
+    "$package_root"/libjson-c5_*.deb \
+    "$package_root"/libjson-c-dev_*.deb
   ldconfig
 
   log_step "Running package-centric installed-artifact smoke tests"
-  "$WORKSPACE_COPY/safe/debian/tests/unit-test"
+  if [[ -n "$PACKAGE_DIR" ]]; then
+    "$ROOT/safe/debian/tests/unit-test"
+  else
+    "$WORKSPACE_COPY/safe/debian/tests/unit-test"
+  fi
 
   setup_packaged_json_env
 

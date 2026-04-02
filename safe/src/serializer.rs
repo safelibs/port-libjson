@@ -80,12 +80,9 @@ fn escape_string(pb: *mut printbuf, bytes: &[u8], flags: c_int) -> c_int
                     hex[(byte >> 4) as usize],
                     hex[(byte & 0x0f) as usize],
                 ];
-                if idx > start
+                if idx > start && append_bytes(pb, &bytes[start..idx]) < 0
                 {
-                    if append_bytes(pb, &bytes[start..idx]) < 0
-                    {
-                        return -1;
-                    }
+                    return -1;
                 }
                 if append_bytes(pb, &escaped) < 0
                 {
@@ -99,12 +96,9 @@ fn escape_string(pb: *mut printbuf, bytes: &[u8], flags: c_int) -> c_int
 
         if let Some(escaped) = escaped
         {
-            if idx > start
+            if idx > start && append_bytes(pb, &bytes[start..idx]) < 0
             {
-                if append_bytes(pb, &bytes[start..idx]) < 0
-                {
-                    return -1;
-                }
+                return -1;
             }
             if append_bytes(pb, &escaped) < 0
             {
@@ -515,9 +509,9 @@ unsafe fn format_double(
         if let Some(dot) = rendered.iter().position(|byte| *byte == b'.')
         {
             let mut keep = dot + 1;
-            for idx in dot + 1..rendered.len()
+            for (idx, byte) in rendered.iter().enumerate().skip(dot + 1)
             {
-                if rendered[idx] != b'0'
+                if *byte != b'0'
                 {
                     keep = idx + 1;
                 }

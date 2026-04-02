@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub(crate) unsafe fn json_c_get_random_seed_impl() -> c_int
+pub(crate) fn json_c_get_random_seed_impl() -> c_int
 {
     let mut bytes = [0_u8; 4];
     if File::open("/dev/urandom").and_then(|mut file| file.read_exact(&mut bytes)).is_ok()

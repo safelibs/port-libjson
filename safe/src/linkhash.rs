@@ -100,60 +100,49 @@ fn hashlittle(bytes: &[u8], initval: u32) -> u32
     }
 
     let tail = &bytes[offset..];
-    match tail.len()
+    if tail.len() == 12
     {
-        12 => c = c.wrapping_add((tail[11] as u32) << 24),
-        _ => {}
+        c = c.wrapping_add((tail[11] as u32) << 24);
     }
-    match tail.len()
+    if let 11..=12 = tail.len()
     {
-        11 | 12 => c = c.wrapping_add((tail[10] as u32) << 16),
-        _ => {}
+        c = c.wrapping_add((tail[10] as u32) << 16);
     }
-    match tail.len()
+    if let 10..=12 = tail.len()
     {
-        10 | 11 | 12 => c = c.wrapping_add((tail[9] as u32) << 8),
-        _ => {}
+        c = c.wrapping_add((tail[9] as u32) << 8);
     }
-    match tail.len()
+    if let 9..=12 = tail.len()
     {
-        9..=12 => c = c.wrapping_add(tail[8] as u32),
-        _ => {}
+        c = c.wrapping_add(tail[8] as u32);
     }
-    match tail.len()
+    if let 8..=12 = tail.len()
     {
-        8..=12 => b = b.wrapping_add((tail[7] as u32) << 24),
-        _ => {}
+        b = b.wrapping_add((tail[7] as u32) << 24);
     }
-    match tail.len()
+    if let 7..=12 = tail.len()
     {
-        7..=12 => b = b.wrapping_add((tail[6] as u32) << 16),
-        _ => {}
+        b = b.wrapping_add((tail[6] as u32) << 16);
     }
-    match tail.len()
+    if let 6..=12 = tail.len()
     {
-        6..=12 => b = b.wrapping_add((tail[5] as u32) << 8),
-        _ => {}
+        b = b.wrapping_add((tail[5] as u32) << 8);
     }
-    match tail.len()
+    if let 5..=12 = tail.len()
     {
-        5..=12 => b = b.wrapping_add(tail[4] as u32),
-        _ => {}
+        b = b.wrapping_add(tail[4] as u32);
     }
-    match tail.len()
+    if let 4..=12 = tail.len()
     {
-        4..=12 => a = a.wrapping_add((tail[3] as u32) << 24),
-        _ => {}
+        a = a.wrapping_add((tail[3] as u32) << 24);
     }
-    match tail.len()
+    if let 3..=12 = tail.len()
     {
-        3..=12 => a = a.wrapping_add((tail[2] as u32) << 16),
-        _ => {}
+        a = a.wrapping_add((tail[2] as u32) << 16);
     }
-    match tail.len()
+    if let 2..=12 = tail.len()
     {
-        2..=12 => a = a.wrapping_add((tail[1] as u32) << 8),
-        _ => {}
+        a = a.wrapping_add((tail[1] as u32) << 8);
     }
     match tail.len()
     {
@@ -166,7 +155,7 @@ fn hashlittle(bytes: &[u8], initval: u32) -> u32
     c
 }
 
-unsafe fn current_seed() -> u32
+fn current_seed() -> u32
 {
     let mut seed = RANDOM_SEED.load(Ordering::Acquire);
     if seed == -1
@@ -219,7 +208,7 @@ unsafe fn table_hash(t: *mut lh_table, key: *const c_void) -> c_ulong
     (*t).hash_fn.expect("hash function")(key)
 }
 
-pub(crate) unsafe fn json_global_set_string_hash_impl(hash_mode: c_int) -> c_int
+pub(crate) fn json_global_set_string_hash_impl(hash_mode: c_int) -> c_int
 {
     match hash_mode
     {
@@ -334,24 +323,6 @@ pub(crate) unsafe fn lh_table_resize_impl(t: *mut lh_table, new_size: c_int) -> 
     (*t).tail = (*new_t).tail;
     free(new_t.cast());
     0
-}
-
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-    use std::ffi::CString;
-
-    #[test]
-    fn perllike_hash_uses_c_char_promotion_for_high_bytes()
-    {
-        let key = CString::new(vec![0xff]).expect("CString");
-        let expected = 1_u32
-            .wrapping_mul(33)
-            .wrapping_add(((0xff_u8 as c_char) as c_int) as u32);
-        let actual = unsafe { lh_perllike_str_hash(key.as_ptr().cast()) as u32 };
-        assert_eq!(actual, expected);
-    }
 }
 
 pub(crate) unsafe fn lh_table_free_impl(t: *mut lh_table)
@@ -579,4 +550,22 @@ pub(crate) unsafe fn lh_table_delete_impl(t: *mut lh_table, key: *const c_void) 
 pub(crate) unsafe fn lh_table_length_impl(t: *mut lh_table) -> c_int
 {
     if t.is_null() { 0 } else { (*t).count }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+    use std::ffi::CString;
+
+    #[test]
+    fn perllike_hash_uses_c_char_promotion_for_high_bytes()
+    {
+        let key = CString::new(vec![0xff]).expect("CString");
+        let expected = 1_u32
+            .wrapping_mul(33)
+            .wrapping_add(((0xff_u8 as c_char) as c_int) as u32);
+        let actual = unsafe { lh_perllike_str_hash(key.as_ptr().cast()) as u32 };
+        assert_eq!(actual, expected);
+    }
 }
