@@ -1,0 +1,5 @@
+/Cargo.lock
+/build/*
+!/build/config.h
+!/build/json.h
+!/build/json_config.h

@@ -1,0 +1,15 @@
+[package]
+name = "json-c-safe"
+version = "0.17.0"
+edition = "2021"
+
+[lib]
+name = "json_c"
+crate-type = ["staticlib"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+debug = true
+panic = "abort"

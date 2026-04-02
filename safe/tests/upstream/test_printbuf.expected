@@ -1,0 +1,30 @@
+test_string_serialization: starting test
+Serialized string: "blue:1"
+Serialized length: 8
+Updated string: "blue:1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+Updated serialized length: 60
+test_string_serialization: end test
+========================================
+test_string_resize_lengths: starting test
+String length: 0, serialized length: 2
+String length: 12, serialized length: 14
+String length: 18, serialized length: 20
+String length: 76, serialized length: 78
+String length: 76, serialized length: 78
+String length: 77, serialized length: 79
+test_string_resize_lengths: end test
+========================================
+test_binary_string_round_trip: starting test
+Serialized string: "ab\u0000c"
+Serialized length: 11
+Round-trip length: 4
+Round-trip bytes: 97 98 0 99
+test_binary_string_round_trip: end test
+========================================
+test_large_json_output: starting test
+Plain length: 198
+Pretty length: 408
+First item: 0
+Last item: 39
+test_large_json_output: end test
+========================================

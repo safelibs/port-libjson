@@ -1,0 +1,2 @@
+json_object_from_file: error opening file not_present.json: ERRNO=ENOENT
+json_object_from_fd_ex: error reading fd -1: ERRNO=EBADF
