@@ -6,6 +6,7 @@ safe_dir="${repo_root}/safe"
 build_dir="${safe_dir}/build"
 stage_root="/tmp/libjson-safe-stage"
 tmp_root=""
+success_stamp=""
 
 usage() {
     cat <<'EOF'
@@ -21,6 +22,42 @@ cleanup() {
     if [[ -n "${tmp_root}" && -d "${tmp_root}" ]]; then
         rm -rf "${tmp_root}"
     fi
+}
+
+stamp_is_fresh() {
+    local path
+    local stamp_inputs=(
+        "${repo_root}/all_cves.json"
+        "${repo_root}/dependents.json"
+        "${repo_root}/original/json-c.sym"
+        "${repo_root}/relevant_cves.json"
+        "${repo_root}/test-original.sh"
+        "${repo_root}/workflow.yaml"
+        "${safe_dir}/CMakeLists.txt"
+        "${safe_dir}/abi"
+        "${safe_dir}/cmake"
+        "${safe_dir}/debian"
+        "${safe_dir}/include"
+        "${safe_dir}/json-c.pc.in"
+        "${safe_dir}/src"
+        "${safe_dir}/tests"
+        "${safe_dir}/tools"
+    )
+
+    [[ -n "${success_stamp}" && -f "${success_stamp}" ]] || return 1
+
+    for path in "${stamp_inputs[@]}"; do
+        [[ -e "${path}" ]] || continue
+        if [[ -d "${path}" ]]; then
+            if find "${path}" -type f -newer "${success_stamp}" -print -quit | grep -q .; then
+                return 1
+            fi
+        elif [[ "${path}" -nt "${success_stamp}" ]]; then
+            return 1
+        fi
+    done
+
+    return 0
 }
 
 run_perf_smoke() {
@@ -127,6 +164,15 @@ if [[ "${stage_root}" != /* ]]; then
     stage_root="${repo_root}/${stage_root}"
 fi
 
+success_stamp="${build_dir}/.verify_07_full_suite.ok"
+
+if [[ "${LIBJSON_FULL_VERIFY_SKIP_IF_FRESH:-0}" == "1" ]] && stamp_is_fresh; then
+    log_step "Skipping redundant full verification; ${success_stamp} is current"
+    exit 0
+fi
+
+rm -f "${success_stamp}"
+
 log_step "Configuring ${build_dir}"
 rm -rf "${stage_root}"
 cmake -S "${safe_dir}" -B "${build_dir}" \
@@ -179,5 +225,7 @@ log_step "Installing the built packages in the Ubuntu 24.04 testbed"
     --package-dir "${tmp_root}/debs"
 
 run_perf_smoke
+
+touch "${success_stamp}"
 
 log_step "Full verification completed"

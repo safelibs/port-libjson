@@ -636,7 +636,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
 
     add_test(
         NAME verify_07_full_suite
-        COMMAND ${PROJECT_SOURCE_DIR}/tools/full-verify.sh
+        COMMAND ${CMAKE_COMMAND} -E env
+                LIBJSON_FULL_VERIFY_SKIP_IF_FRESH=1
+                ${PROJECT_SOURCE_DIR}/tools/full-verify.sh
     )
     set_tests_properties(
         verify_07_full_suite
