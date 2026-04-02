@@ -1,0 +1,12 @@
+json_c_object_sizeof() returned a non-zero size
+json_object_get_object() handled object, array, and NULL inputs
+json_object_get_array() handled array, object, and NULL inputs
+json_object_object_add_ex() added a constant-key field
+json_object_object_add_ex() replaced an existing field
+json_object_object_add_ex() rejected a trivial self-reference
+object={"answer":7,"payload":["alpha","beta"]}
+========================================
+json_tokener_new_ex(2) rejected nested input: nesting too deep
+json_tokener_new_ex(2) parsed shallow input: [1]
+json_tokener_new_ex(4) parsed nested input: [[1]]
+========================================

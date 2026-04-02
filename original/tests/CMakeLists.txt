@@ -30,6 +30,7 @@ set(ALL_TEST_NAMES
     test_parse
     test_parse_int64
     test_printbuf
+    test_public_api
     test_set_serializer
     test_set_value
     test_strerror
