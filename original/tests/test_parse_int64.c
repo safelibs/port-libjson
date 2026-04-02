@@ -2,33 +2,50 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "config.h"
 
 #include "json_inttypes.h"
-#include "json_util.h"
+#include "json_object.h"
 
 void checkit(const char *buf)
 {
 	int64_t cint64 = -666;
+	int64_t parsed;
+	int retval;
+	json_object *jso = json_object_new_string(buf);
 
-	int retval = json_parse_int64(buf, &cint64);
+	errno = 0;
+	parsed = json_object_get_int64(jso);
+	retval = (errno == EINVAL);
+	if (errno != EINVAL)
+		cint64 = parsed;
 	printf("buf=%s parseit=%d, value=%" PRId64 " \n", buf, retval, cint64);
+	json_object_put(jso);
 }
 
 void checkit_uint(const char *buf)
 {
 	uint64_t cuint64 = 666;
+	uint64_t parsed;
+	int retval;
+	json_object *jso = json_object_new_string(buf);
 
-	int retval = json_parse_uint64(buf, &cuint64);
+	errno = 0;
+	parsed = json_object_get_uint64(jso);
+	retval = (errno == EINVAL);
+	if (errno != EINVAL)
+		cuint64 = parsed;
 	printf("buf=%s parseit=%d, value=%" PRIu64 " \n", buf, retval, cuint64);
+	json_object_put(jso);
 }
 
 /**
- * This test calls json_parse_int64 and json_parse_int64 with a variety
- * of different strings. It's purpose is to ensure that the results are
+ * This test exercises the public string-to-integer conversion APIs with a
+ * variety of strings. Its purpose is to ensure that the results are
  * consistent across all different environments that it might be executed in.
  *
  * This always exits with a 0 exit value.  The output should be compared
@@ -38,7 +55,7 @@ int main(int argc, char **argv)
 {
 	char buf[100];
 
-	printf("==========json_parse_int64() test===========\n");
+	printf("==========json_object_get_int64() test===========\n");
 	checkit("x");
 
 	checkit("0");
@@ -125,7 +142,7 @@ int main(int argc, char **argv)
 	strcpy(buf, "123");
 	checkit(buf);
 
-	printf("\n==========json_parse_uint64() test===========\n");
+	printf("\n==========json_object_get_uint64() test===========\n");
 	checkit_uint("x");
 
 	checkit_uint("0");

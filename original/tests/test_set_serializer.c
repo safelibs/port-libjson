@@ -6,31 +6,17 @@
 #include <string.h>
 
 #include "json.h"
-#include "printbuf.h"
-
-struct myinfo
-{
-	int value;
-};
 
 static int freeit_was_called = 0;
-static struct myinfo *expected_freeit_userdata = NULL;
+static void *expected_freeit_userdata = NULL;
 static void freeit(json_object *jso, void *userdata)
 {
-	struct myinfo *info = userdata;
 	(void)jso;
-	assert(info == expected_freeit_userdata);
-	printf("freeit, value=%d\n", info->value);
+	assert(userdata == expected_freeit_userdata);
+	assert(strcmp((const char *)userdata, "Custom Output") == 0);
+	printf("freeit, value=%d\n", 123);
 	/* Don't actually free anything here, the userdata is stack allocated. */
 	freeit_was_called = 1;
-}
-static int custom_serializer(struct json_object *o, struct printbuf *pb, int level, int flags)
-{
-	(void)o;
-	(void)level;
-	(void)flags;
-	sprintbuf(pb, "Custom Output");
-	return 0;
 }
 
 int main(int argc, char **argv)
@@ -44,9 +30,9 @@ int main(int argc, char **argv)
 
 	printf("my_object.to_string(standard)=%s\n", json_object_to_json_string(my_object));
 
-	struct myinfo userdata = {.value = 123};
-	expected_freeit_userdata = &userdata;
-	json_object_set_serializer(my_object, custom_serializer, &userdata, freeit);
+	char userdata[] = "Custom Output";
+	expected_freeit_userdata = userdata;
+	json_object_set_serializer(my_object, json_object_userdata_to_json_string, userdata, freeit);
 
 	printf("my_object.to_string(custom serializer)=%s\n",
 	       json_object_to_json_string(my_object));
@@ -64,7 +50,7 @@ int main(int argc, char **argv)
 
 	my_object = json_object_new_object();
 	printf("Check that the custom serializer isn't free'd until the last json_object_put:\n");
-	json_object_set_serializer(my_object, custom_serializer, &userdata, freeit);
+	json_object_set_serializer(my_object, json_object_userdata_to_json_string, userdata, freeit);
 	json_object_get(my_object);
 	json_object_put(my_object);
 	printf("my_object.to_string(custom serializer)=%s\n",
