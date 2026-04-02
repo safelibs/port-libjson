@@ -21,7 +21,25 @@ smoke_dir="${safe_root}/tests/package"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
-multiarch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+detect_multiarch() {
+    local triplet=""
+
+    triplet="$(cc -print-multiarch 2>/dev/null || true)"
+    if [[ -n "${triplet}" ]]; then
+        printf '%s\n' "${triplet}"
+        return 0
+    fi
+
+    if command -v dpkg-architecture >/dev/null 2>&1; then
+        dpkg-architecture -qDEB_HOST_MULTIARCH
+        return 0
+    fi
+
+    echo "could not determine Debian multiarch triplet" >&2
+    return 1
+}
+
+multiarch="$(detect_multiarch)"
 json_c_cmake_dir=""
 staged_root=""
 
@@ -72,10 +90,13 @@ cc \
     -o "${tmpdir}/pkgconfig_static_smoke"
 "${tmpdir}/pkgconfig_static_smoke"
 
-echo "cmake smoke: find_package(json-c CONFIG)"
+echo "cmake shared smoke: find_package(json-c CONFIG)"
 cmake \
     -S "${smoke_dir}/cmake-smoke" \
     -B "${tmpdir}/cmake-smoke" \
     -Djson-c_DIR="${json_c_cmake_dir}"
 cmake --build "${tmpdir}/cmake-smoke"
 "${tmpdir}/cmake-smoke/cmake_smoke"
+
+echo "cmake static smoke: json-c::json-c-static"
+"${tmpdir}/cmake-smoke/cmake_static_smoke"

@@ -2022,6 +2022,10 @@ case "$MODE" in
     ;;
 esac
 
+if [[ "$MODE" == "safe-package" ]]; then
+  run_safe_package_smoke_tests
+fi
+
 run_compile_checks() {
   if matches_only_filter "BIND 9" "bind9"; then
     compile_bind9
@@ -2062,10 +2066,6 @@ run_compile_checks() {
 }
 
 run_runtime_checks() {
-  if [[ "$MODE" == "safe-package" ]]; then
-    run_safe_package_smoke_tests
-  fi
-
   if matches_only_filter "BIND 9" "bind9"; then
     test_bind9
   fi
