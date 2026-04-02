@@ -4,6 +4,9 @@ set -euo pipefail
 
 exec 2>&1
 
+dpkg_cfg_marker_begin="# BEGIN libjson-safe staged dpkg root"
+dpkg_cfg_marker_end="# END libjson-safe staged dpkg root"
+
 script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 if [[ -d "${script_dir}/../../tests/package" ]]; then
     safe_root="$(CDPATH= cd -- "${script_dir}/../.." && pwd)"
@@ -17,6 +20,29 @@ fi
 smoke_dir="${safe_root}/tests/package"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
+
+multiarch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+json_c_cmake_dir=""
+
+staged_root="$(awk \
+    -v begin="${dpkg_cfg_marker_begin}" \
+    -v end="${dpkg_cfg_marker_end}" \
+    '
+        $0 == begin { in_block = 1; next }
+        $0 == end { in_block = 0; next }
+        in_block && /^root=/ { print substr($0, 6) }
+    ' \
+    "${HOME}/.dpkg.cfg" 2>/dev/null | tail -n 1)"
+
+if [[ -n "${staged_root}" && -f "${staged_root}/usr/lib/${multiarch}/pkgconfig/json-c.pc" ]]; then
+    export PKG_CONFIG_SYSROOT_DIR="${staged_root}"
+    export PKG_CONFIG_LIBDIR="${staged_root}/usr/lib/${multiarch}/pkgconfig:${staged_root}/usr/share/pkgconfig"
+    export LD_LIBRARY_PATH="${staged_root}/usr/lib/${multiarch}${LD_LIBRARY_PATH+:${LD_LIBRARY_PATH}}"
+    json_c_cmake_dir="${staged_root}/usr/lib/${multiarch}/cmake/json-c"
+    echo "using staged non-root dpkg root: ${staged_root}"
+else
+    json_c_cmake_dir="$(pkg-config --variable=libdir json-c)/cmake/json-c"
+fi
 
 echo "shared smoke: pkg-config --cflags --libs json-c"
 cc \
@@ -47,6 +73,6 @@ echo "cmake smoke: find_package(json-c CONFIG)"
 cmake \
     -S "${smoke_dir}/cmake-smoke" \
     -B "${tmpdir}/cmake-smoke" \
-    -Djson-c_DIR="$(pkg-config --variable=libdir json-c)/cmake/json-c"
+    -Djson-c_DIR="${json_c_cmake_dir}"
 cmake --build "${tmpdir}/cmake-smoke"
 "${tmpdir}/cmake-smoke/cmake_smoke"

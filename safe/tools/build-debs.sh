@@ -4,6 +4,8 @@ set -euo pipefail
 workspace=""
 out=""
 cargo_lock_backup=""
+dpkg_cfg_marker_begin="# BEGIN libjson-safe staged dpkg root"
+dpkg_cfg_marker_end="# END libjson-safe staged dpkg root"
 
 cleanup() {
     if [[ -n "${cargo_lock_backup}" && -f "${cargo_lock_backup}" ]]; then
@@ -17,6 +19,51 @@ usage() {
     cat <<'EOF'
 usage: build-debs.sh --workspace <workspace-copy> --out <artifact-dir>
 EOF
+}
+
+configure_nonroot_dpkg_install() {
+    local dpkg_root dpkg_cfg tmp_cfg
+
+    [[ "$(id -u)" -ne 0 ]] || return 0
+
+    dpkg_root="${HOME}/.local/state/libjson-safe-dpkg-root"
+    dpkg_cfg="${HOME}/.dpkg.cfg"
+
+    mkdir -p \
+        "${dpkg_root}/var/lib/dpkg" \
+        "${dpkg_root}/var/lib/dpkg/info" \
+        "${dpkg_root}/var/lib/dpkg/triggers" \
+        "${dpkg_root}/var/lib/dpkg/updates" \
+        "${dpkg_root}/var/log"
+    cp -f /var/lib/dpkg/status "${dpkg_root}/var/lib/dpkg/status"
+    if [[ -d /var/lib/dpkg/info ]]; then
+        rm -rf "${dpkg_root}/var/lib/dpkg/info"
+        mkdir -p "${dpkg_root}/var/lib/dpkg/info"
+        cp -a /var/lib/dpkg/info/. "${dpkg_root}/var/lib/dpkg/info/"
+    fi
+
+    tmp_cfg="$(mktemp "${HOME}/.dpkg.cfg.libjson-safe.XXXXXX")"
+    if [[ -f "${dpkg_cfg}" ]]; then
+        awk \
+            -v begin="${dpkg_cfg_marker_begin}" \
+            -v end="${dpkg_cfg_marker_end}" \
+            '
+                $0 == begin { skip = 1; next }
+                $0 == end { skip = 0; next }
+                !skip { print }
+            ' \
+            "${dpkg_cfg}" >"${tmp_cfg}"
+    fi
+
+    cat >>"${tmp_cfg}" <<EOF
+${dpkg_cfg_marker_begin}
+force-not-root
+no-triggers
+root=${dpkg_root}
+log=${dpkg_root}/var/log/dpkg.log
+${dpkg_cfg_marker_end}
+EOF
+    mv -f "${tmp_cfg}" "${dpkg_cfg}"
 }
 
 while (($#)); do
@@ -95,5 +142,7 @@ for artifact in "${artifacts[@]}"; do
     }
     cp -f "${artifact}" "${out}/"
 done
+
+configure_nonroot_dpkg_install
 
 printf 'wrote Debian artifacts to %s\n' "${out}"
