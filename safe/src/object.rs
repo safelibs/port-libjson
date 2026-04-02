@@ -7,6 +7,7 @@ use std::ptr;
 
 extern "C" {
     fn __errno_location() -> *mut c_int;
+    fn abort() -> !;
     fn free(ptr: *mut c_void);
     fn strdup(s: *const c_char) -> *mut c_char;
     fn strtod(nptr: *const c_char, endptr: *mut *mut c_char) -> c_double;
@@ -174,6 +175,12 @@ fn serializer_matches(
     expected: json_object_to_json_string_fn,
 ) -> bool {
     current.is_some_and(|func| func as usize == expected as usize)
+}
+
+fn is_userdata_serializer(current: Option<json_object_to_json_string_fn>) -> bool {
+    serializer_matches(current, serializer::json_object_userdata_to_json_string_impl)
+        || serializer_matches(current, serializer::json_object_userdata_to_json_string_wrapper_impl)
+        || serializer_matches(current, crate::exports::json_object_userdata_to_json_string)
 }
 
 pub(crate) unsafe fn json_object_put_impl(obj: *mut json_object) -> c_int {
@@ -1010,18 +1017,9 @@ unsafe fn copy_serializer_data(src: *mut json_object, dst: *mut json_object) -> 
         return 0;
     }
 
-    if serializer_matches(
-        dst_inner.to_json_string,
-        serializer::json_object_userdata_to_json_string_impl,
-    ) || serializer_matches(
-        dst_inner.to_json_string,
-        serializer::json_object_userdata_to_json_string_wrapper_impl,
-    ) {
+    if is_userdata_serializer(dst_inner.to_json_string) {
         if src_inner.userdata.is_null() {
-            errors::set_last_err_fmt(format_args!(
-                "json_object_copy_serializer_data: missing serializer userdata\n"
-            ));
-            return -1;
+            abort();
         }
 
         let duplicated = strdup(src_inner.userdata.cast());

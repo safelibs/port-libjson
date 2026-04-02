@@ -1,1 +1,1 @@
-deep_copy with NULL serializer userdata failed as expected.
+deep_copy serializer userdata edge cases matched upstream.
