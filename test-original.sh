@@ -3,6 +3,44 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_TAG="${LIBJSON_ORIGINAL_TEST_IMAGE:-libjson-original-test:ubuntu24.04}"
+MODE="safe-package"
+
+usage() {
+  cat <<'EOF'
+usage: test-original.sh [--mode safe-package|original-source]
+
+safe-package is the default compatibility target. Use original-source only for
+baseline comparisons against a /usr/local install.
+EOF
+}
+
+while (($#)); do
+  case "$1" in
+    --mode)
+      MODE="${2:?missing value for --mode}"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'unknown option: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+case "$MODE" in
+  safe-package|original-source)
+    ;;
+  *)
+    printf 'unsupported mode: %s\n' "$MODE" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
 
 command -v docker >/dev/null 2>&1 || {
   echo "docker is required to run $0" >&2
@@ -25,11 +63,14 @@ RUN sed 's/^Types: deb$/Types: deb-src/' /etc/apt/sources.list.d/ubuntu.sources 
       bison \
       build-essential \
       ca-certificates \
+      cargo \
       check \
       cmake \
       curl \
+      debhelper \
       dbus \
       dpkg-dev \
+      fakeroot \
       flex \
       frr \
       gdal-bin \
@@ -52,6 +93,7 @@ RUN sed 's/^Types: deb$/Types: deb-src/' /etc/apt/sources.list.d/ubuntu.sources 
       python3-docutils \
       python3-pygments \
       python3-websockets \
+      rustc \
       sway \
       syslog-ng-core \
       systemd-dev \
@@ -64,6 +106,7 @@ DOCKERFILE
 docker run --rm -i \
   --cap-add=NET_ADMIN \
   --cap-add=SYS_ADMIN \
+  -e LIBJSON_TEST_MODE="$MODE" \
   -v "$ROOT":/work:ro \
   "$IMAGE_TAG" \
   bash -s <<'CONTAINER_SCRIPT'
@@ -73,6 +116,12 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
 ROOT=/work
+MODE="${LIBJSON_TEST_MODE:-safe-package}"
+WORKSPACE_COPY=/tmp/libjson-safe-work
+ARTIFACT_DIR=/tmp/libjson-safe-artifacts
+JSON_C_LIBDIR=""
+JSON_C_RUNTIME_LIB=""
+JSON_C_MODE_LABEL=""
 
 log_step() {
   printf '\n==> %s\n' "$1"
@@ -94,7 +143,7 @@ assert_dependents_inventory() {
   fi
 }
 
-setup_local_json_env() {
+setup_original_json_env() {
   local ld_parts=() pkg_parts=()
 
   for path in /usr/local/lib /usr/local/lib/x86_64-linux-gnu; do
@@ -120,37 +169,99 @@ setup_local_json_env() {
 
   export PKG_CONFIG_PATH
   PKG_CONFIG_PATH="$(IFS=:; echo "${pkg_parts[*]}")${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+
+  JSON_C_LIBDIR="$(pkg-config --variable=libdir json-c)"
+  [[ -d "$JSON_C_LIBDIR" ]] || die "pkg-config reported a missing libdir: ${JSON_C_LIBDIR}"
+
+  JSON_C_RUNTIME_LIB="$(find "$JSON_C_LIBDIR" -maxdepth 1 -type f -name 'libjson-c.so.5*' | sort | head -n 1)"
+  [[ -n "$JSON_C_RUNTIME_LIB" ]] || die "could not locate the original-source libjson-c shared object under ${JSON_C_LIBDIR}"
+  JSON_C_RUNTIME_LIB="$(readlink -f "$JSON_C_RUNTIME_LIB")"
+  JSON_C_MODE_LABEL="original-source"
 }
 
-assert_uses_local_json_c() {
+setup_packaged_json_env() {
+  local packaged_lib
+
+  JSON_C_LIBDIR="$(pkg-config --variable=libdir json-c)"
+  [[ -d "$JSON_C_LIBDIR" ]] || die "pkg-config reported a missing libdir: ${JSON_C_LIBDIR}"
+
+  packaged_lib="$(dpkg -L libjson-c5 | grep -E '/libjson-c\.so\.5(\..*)?$' | head -n 1)"
+  [[ -n "$packaged_lib" ]] || die "dpkg -L libjson-c5 did not report an installed libjson-c shared object"
+  [[ "$(dirname "$packaged_lib")" == "$JSON_C_LIBDIR" ]] || {
+    printf 'dpkg -L libjson-c5 reported %s, but pkg-config points at %s\n' "$packaged_lib" "$JSON_C_LIBDIR" >&2
+    exit 1
+  }
+
+  JSON_C_RUNTIME_LIB="$(readlink -f "$packaged_lib")"
+  [[ -f "$JSON_C_RUNTIME_LIB" ]] || die "installed libjson-c shared object is missing: ${JSON_C_RUNTIME_LIB}"
+  JSON_C_MODE_LABEL="safe-package"
+}
+
+assert_uses_selected_json_c() {
   local target="$1"
   local ldd_out
+  local resolved_lib
 
-  ldd_out="$(LD_LIBRARY_PATH="$LD_LIBRARY_PATH" ldd "$target")"
-  if ! grep -E 'libjson-c\.so[^[:space:]]* => /usr/local/' <<<"$ldd_out" >/dev/null; then
+  ldd_out="$(LD_LIBRARY_PATH="${LD_LIBRARY_PATH-}" ldd "$target")"
+  resolved_lib="$(awk '/libjson-c\.so/{print $3; exit}' <<<"$ldd_out")"
+  [[ -n "$resolved_lib" ]] || {
     echo "$ldd_out" >&2
-    die "$target is not resolving libjson-c from /usr/local"
+    die "$target is not resolving libjson-c at all"
+  }
+  resolved_lib="$(readlink -f "$resolved_lib")"
+
+  if [[ "$resolved_lib" != "$JSON_C_RUNTIME_LIB" ]]; then
+    echo "$ldd_out" >&2
+    die "$target is not resolving libjson-c from ${JSON_C_MODE_LABEL} (${JSON_C_RUNTIME_LIB})"
   fi
 }
 
 build_original_json_c() {
-  log_step "Building original json-c"
+  log_step "Building original json-c baseline into /usr/local"
 
   cmake -S "$ROOT/original" -B /tmp/json-c-build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr/local
   cmake --build /tmp/json-c-build -j"$(nproc)"
   cmake --install /tmp/json-c-build
   ldconfig
 
-  setup_local_json_env
+  setup_original_json_env
 
-  printf 'Using json-c %s from %s\n' \
+  printf 'Using %s json-c %s from %s\n' \
+    "$JSON_C_MODE_LABEL" \
     "$(pkg-config --modversion json-c)" \
-    "$(pkg-config --variable=libdir json-c)"
+    "$JSON_C_RUNTIME_LIB"
+}
+
+build_safe_packages() {
+  log_step "Building safe Debian packages from a writable workspace copy"
+
+  rm -rf "$WORKSPACE_COPY" "$ARTIFACT_DIR"
+  mkdir -p "$WORKSPACE_COPY" "$ARTIFACT_DIR"
+  cp -a "$ROOT/." "$WORKSPACE_COPY/"
+
+  "$WORKSPACE_COPY/safe/tools/build-debs.sh" \
+    --workspace "$WORKSPACE_COPY" \
+    --out "$ARTIFACT_DIR"
+
+  dpkg -i \
+    "$ARTIFACT_DIR"/libjson-c5_*.deb \
+    "$ARTIFACT_DIR"/libjson-c-dev_*.deb
+  ldconfig
+
+  log_step "Running package-centric installed-artifact smoke tests"
+  "$WORKSPACE_COPY/safe/debian/tests/unit-test"
+
+  setup_packaged_json_env
+
+  printf 'Using %s json-c %s from %s\n' \
+    "$JSON_C_MODE_LABEL" \
+    "$(pkg-config --modversion json-c)" \
+    "$JSON_C_RUNTIME_LIB"
 }
 
 test_bind9() {
   log_step "Testing BIND 9"
-  assert_uses_local_json_c /usr/sbin/named
+  assert_uses_selected_json_c /usr/sbin/named
 
   (
   rm -rf /tmp/bindtest
@@ -205,7 +316,7 @@ CFG
 
 test_frr() {
   log_step "Testing FRRouting"
-  assert_uses_local_json_c /usr/lib/frr/zebra
+  assert_uses_selected_json_c /usr/lib/frr/zebra
 
   (
   rm -rf /tmp/frrtest
@@ -253,7 +364,7 @@ test_frr() {
 
 test_sway() {
   log_step "Testing Sway"
-  assert_uses_local_json_c /usr/bin/sway
+  assert_uses_selected_json_c /usr/bin/sway
 
   (
   rm -rf /tmp/swaytest
@@ -305,7 +416,7 @@ test_gdal() {
   local gdal_lib
   gdal_lib="$(ldconfig -p | awk '/libgdal\.so/{print $NF; exit}')"
   [[ -n "$gdal_lib" ]] || die "could not locate libgdal.so"
-  assert_uses_local_json_c "$gdal_lib"
+  assert_uses_selected_json_c "$gdal_lib"
 
   rm -rf /tmp/gdaltest
   mkdir -p /tmp/gdaltest
@@ -329,7 +440,7 @@ JSON
 
 test_nvme_cli() {
   log_step "Testing nvme-cli"
-  assert_uses_local_json_c /usr/sbin/nvme
+  assert_uses_selected_json_c /usr/sbin/nvme
 
   rm -rf /tmp/nvmetest
   mkdir -p /tmp/nvmetest
@@ -365,14 +476,14 @@ test_bluez_mesh_build() {
     --disable-client
   make -j"$(nproc)" mesh/bluetooth-meshd tools/mesh-cfgclient
 
-  assert_uses_local_json_c "$srcdir/mesh/bluetooth-meshd"
-  assert_uses_local_json_c "$srcdir/tools/mesh-cfgclient"
+  assert_uses_selected_json_c "$srcdir/mesh/bluetooth-meshd"
+  assert_uses_selected_json_c "$srcdir/tools/mesh-cfgclient"
   )
 }
 
 test_syslog_ng() {
   log_step "Testing syslog-ng"
-  assert_uses_local_json_c /usr/lib/syslog-ng/4.3/libjson-plugin.so
+  assert_uses_selected_json_c /usr/lib/syslog-ng/4.3/libjson-plugin.so
 
   (
   rm -rf /tmp/syslogtest
@@ -429,7 +540,7 @@ CFG
 
 test_ttyd() {
   log_step "Testing ttyd"
-  assert_uses_local_json_c /usr/bin/ttyd
+  assert_uses_selected_json_c /usr/bin/ttyd
 
   (
   rm -rf /tmp/ttydtest
@@ -495,7 +606,7 @@ PY
 
 test_tlog() {
   log_step "Testing tlog"
-  assert_uses_local_json_c /usr/bin/tlog-rec
+  assert_uses_selected_json_c /usr/bin/tlog-rec
 
   rm -rf /tmp/tlogtest
   mkdir -p /tmp/tlogtest
@@ -506,7 +617,7 @@ test_tlog() {
 
 test_pd_purest_json() {
   log_step "Testing PuREST JSON for Pure Data"
-  assert_uses_local_json_c /usr/lib/pd/extra/purest_json/json-encode.pd_linux
+  assert_uses_selected_json_c /usr/lib/pd/extra/purest_json/json-encode.pd_linux
 
   rm -rf /tmp/pdtest
   mkdir -p /tmp/pdtest
@@ -548,7 +659,17 @@ PD
 }
 
 assert_dependents_inventory
-build_original_json_c
+case "$MODE" in
+  safe-package)
+    build_safe_packages
+    ;;
+  original-source)
+    build_original_json_c
+    ;;
+  *)
+    die "unsupported mode inside container: $MODE"
+    ;;
+esac
 test_bind9
 test_frr
 test_sway
@@ -560,5 +681,5 @@ test_ttyd
 test_tlog
 test_pd_purest_json
 
-log_step "All dependent-software checks passed"
+log_step "All ${JSON_C_MODE_LABEL} compatibility checks passed"
 CONTAINER_SCRIPT

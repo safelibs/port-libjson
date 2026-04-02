@@ -392,6 +392,7 @@ get_filename_component(_IMPORT_PREFIX "${CMAKE_CURRENT_LIST_FILE}" PATH)
 get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
 get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
 get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
 if(_IMPORT_PREFIX STREQUAL "/")
   set(_IMPORT_PREFIX "")
 endif()
@@ -399,7 +400,7 @@ endif()
 if(NOT TARGET json-c::json-c)
   add_library(json-c::json-c SHARED IMPORTED)
   set_target_properties(json-c::json-c PROPERTIES
-    IMPORTED_LOCATION "${_IMPORT_PREFIX}/lib/libjson-c.so.5.3.0"
+    IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_LIBDIR@/libjson-c.so.5.3.0"
     IMPORTED_SONAME "libjson-c.so.5"
     INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include/json-c"
     INTERFACE_LINK_LIBRARIES "@JSON_C_IMPORTED_LINK_LIBRARIES@"
@@ -409,7 +410,7 @@ endif()
 if(NOT TARGET json-c::json-c-static)
   add_library(json-c::json-c-static STATIC IMPORTED)
   set_target_properties(json-c::json-c-static PROPERTIES
-    IMPORTED_LOCATION "${_IMPORT_PREFIX}/lib/libjson-c.a"
+    IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_LIBDIR@/libjson-c.a"
     IMPORTED_LINK_INTERFACE_LANGUAGES "C"
     INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include;${_IMPORT_PREFIX}/include/json-c"
     INTERFACE_LINK_LIBRARIES "@JSON_C_IMPORTED_LINK_LIBRARIES@"

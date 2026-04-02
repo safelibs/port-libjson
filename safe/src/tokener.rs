@@ -4,7 +4,7 @@ use core::cmp::min;
 use core::mem::size_of;
 use std::ptr;
 
-unsafe extern "C" {
+extern "C" {
     fn calloc(nmemb: size_t, size: size_t) -> *mut c_void;
     fn free(ptr: *mut c_void);
     fn strdup(s: *const c_char) -> *mut c_char;

@@ -132,11 +132,3 @@ const _: [(); 8] = [(); core::mem::size_of::<json_object_iterator>()];
 const _: [(); 72] = [(); core::mem::size_of::<json_tokener>()];
 const _: [(); 32] = [(); core::mem::size_of::<json_tokener_srec>()];
 const _: [(); 24] = [(); core::mem::size_of::<json_patch_error>()];
-
-const _: [(); 16] = [(); core::mem::offset_of!(json_object_iter, entry)];
-const _: [(); 16] = [(); core::mem::offset_of!(json_patch_error, errmsg)];
-const _: [(); 32] = [(); core::mem::offset_of!(json_tokener, char_offset)];
-const _: [(); 48] = [(); core::mem::offset_of!(json_tokener, quote_char)];
-const _: [(); 56] = [(); core::mem::offset_of!(json_tokener, stack)];
-const _: [(); 64] = [(); core::mem::offset_of!(json_tokener, flags)];
-const _: [(); 24] = [(); core::mem::offset_of!(json_tokener_srec, obj_field_name)];

@@ -1,0 +1,2 @@
+Tests: unit-test
+Depends: @, cmake, gcc, libc-dev, make, pkg-config

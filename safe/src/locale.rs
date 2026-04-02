@@ -1,7 +1,7 @@
 use crate::abi::*;
 use std::ptr;
 
-unsafe extern "C" {
+extern "C" {
     fn free(ptr: *mut c_void);
     fn setlocale(category: c_int, locale: *const c_char) -> *mut c_char;
     fn strdup(s: *const c_char) -> *mut c_char;

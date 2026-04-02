@@ -3,7 +3,7 @@ use crate::errors::StaticCell;
 use core::sync::atomic::{AtomicI8, Ordering};
 use std::cell::UnsafeCell;
 
-unsafe extern "C"
+extern "C"
 {
     fn strerror(errnum: c_int) -> *mut c_char;
 }

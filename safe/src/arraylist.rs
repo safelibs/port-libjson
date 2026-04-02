@@ -2,7 +2,7 @@ use crate::abi::*;
 use std::mem::size_of;
 use std::ptr;
 
-unsafe extern "C"
+extern "C"
 {
     fn bsearch(
         key: *const c_void,

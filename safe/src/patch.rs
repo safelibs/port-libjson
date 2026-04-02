@@ -3,7 +3,7 @@ use crate::{object, pointer};
 use std::ffi::CStr;
 use std::ptr;
 
-unsafe extern "C" {
+extern "C" {
     fn __errno_location() -> *mut c_int;
 }
 

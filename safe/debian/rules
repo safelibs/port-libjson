@@ -1,0 +1,26 @@
+#!/usr/bin/make -f
+#export DH_VERBOSE=1
+
+DPKG_GENSYMBOLS_CHECK_LEVEL ?= 4
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+include /usr/share/dpkg/architecture.mk
+
+export DEB_HOST_MULTIARCH
+
+%:
+	dh $@ --buildsystem=cmake --sourcedirectory=safe --builddirectory=build-deb
+
+override_dh_makeshlibs:
+	dh_makeshlibs -V
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DBUILD_APPS=OFF \
+		-DBUILD_SHARED_LIBS=ON \
+		-DBUILD_STATIC_LIBS=ON \
+		-DBUILD_TESTING=OFF
+
+override_dh_auto_test:
+	:

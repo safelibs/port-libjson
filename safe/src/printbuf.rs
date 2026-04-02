@@ -3,7 +3,7 @@ use std::cmp;
 use std::mem::size_of;
 use std::ptr;
 
-unsafe extern "C"
+extern "C"
 {
     fn __errno_location() -> *mut c_int;
     fn calloc(nmemb: size_t, size: size_t) -> *mut c_void;

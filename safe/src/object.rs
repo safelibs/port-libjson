@@ -5,7 +5,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use std::ffi::CStr;
 use std::ptr;
 
-unsafe extern "C" {
+extern "C" {
     fn __errno_location() -> *mut c_int;
     fn free(ptr: *mut c_void);
     fn strdup(s: *const c_char) -> *mut c_char;
@@ -173,7 +173,7 @@ fn serializer_matches(
     current: Option<json_object_to_json_string_fn>,
     expected: json_object_to_json_string_fn,
 ) -> bool {
-    current.is_some_and(|func| std::ptr::fn_addr_eq(func, expected))
+    current.is_some_and(|func| func as usize == expected as usize)
 }
 
 pub(crate) unsafe fn json_object_put_impl(obj: *mut json_object) -> c_int {

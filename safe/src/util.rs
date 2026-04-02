@@ -3,7 +3,7 @@ use crate::{errors, printbuf as printbuf_impl, serializer, strerror, tokener};
 use std::ffi::CStr;
 use std::ptr;
 
-unsafe extern "C" {
+extern "C" {
     fn __errno_location() -> *mut c_int;
     fn close(fd: c_int) -> c_int;
     fn open(pathname: *const c_char, flags: c_int, ...) -> c_int;

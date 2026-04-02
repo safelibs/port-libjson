@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+exec 2>&1
+
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+if [[ -d "${script_dir}/../../tests/package" ]]; then
+    safe_root="$(CDPATH= cd -- "${script_dir}/../.." && pwd)"
+elif [[ -d "${script_dir}/../../safe/tests/package" ]]; then
+    safe_root="$(CDPATH= cd -- "${script_dir}/../../safe" && pwd)"
+else
+    echo "could not locate safe/tests/package from ${script_dir}" >&2
+    exit 1
+fi
+
+smoke_dir="${safe_root}/tests/package"
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "${tmpdir}"' EXIT
+
+echo "shared smoke: pkg-config --cflags --libs json-c"
+cc \
+    $(pkg-config --cflags json-c) \
+    "${smoke_dir}/pkgconfig_shared_smoke.c" \
+    $(pkg-config --libs json-c) \
+    -o "${tmpdir}/pkgconfig_shared_smoke"
+"${tmpdir}/pkgconfig_shared_smoke"
+
+echo "static smoke: pkg-config --static --libs json-c"
+read -r -a static_tokens <<<"$(pkg-config --static --libs json-c)"
+static_args=()
+for token in "${static_tokens[@]}"; do
+    if [[ "${token}" == "-ljson-c" ]]; then
+        static_args+=("-Wl,-Bstatic" "${token}" "-Wl,-Bdynamic")
+    else
+        static_args+=("${token}")
+    fi
+done
+cc \
+    $(pkg-config --cflags json-c) \
+    "${smoke_dir}/pkgconfig_static_smoke.c" \
+    "${static_args[@]}" \
+    -o "${tmpdir}/pkgconfig_static_smoke"
+"${tmpdir}/pkgconfig_static_smoke"
+
+echo "cmake smoke: find_package(json-c CONFIG)"
+cmake \
+    -S "${smoke_dir}/cmake-smoke" \
+    -B "${tmpdir}/cmake-smoke" \
+    -Djson-c_DIR="$(pkg-config --variable=libdir json-c)/cmake/json-c"
+cmake --build "${tmpdir}/cmake-smoke"
+"${tmpdir}/cmake-smoke/cmake_smoke"

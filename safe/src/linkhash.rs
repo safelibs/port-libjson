@@ -5,7 +5,7 @@ use std::ffi::CStr;
 use std::mem::size_of;
 use std::ptr;
 
-unsafe extern "C"
+extern "C"
 {
     fn calloc(nmemb: size_t, size: size_t) -> *mut c_void;
     fn free(ptr: *mut c_void);

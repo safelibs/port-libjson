@@ -6,7 +6,7 @@ use std::ffi::CStr;
 use std::ptr;
 use std::sync::Mutex;
 
-unsafe extern "C"
+extern "C"
 {
     fn free(ptr: *mut c_void);
     fn snprintf(dst: *mut c_char, size: size_t, format: *const c_char, ...) -> c_int;

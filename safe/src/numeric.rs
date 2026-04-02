@@ -2,7 +2,7 @@ use crate::abi::*;
 use crate::errors;
 use std::ptr;
 
-unsafe extern "C" {
+extern "C" {
     fn __errno_location() -> *mut c_int;
     fn strtod(nptr: *const c_char, endptr: *mut *mut c_char) -> c_double;
     fn strtoll(nptr: *const c_char, endptr: *mut *mut c_char, base: c_int) -> c_longlong;
