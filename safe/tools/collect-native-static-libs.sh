@@ -15,9 +15,41 @@ cleanup() {
 
 trap cleanup EXIT
 
+resolve_rust_tool() {
+    local env_name=$1
+    local system_path=$2
+    local tool_name=$3
+    local candidate=""
+
+    if [[ -n "${!env_name:-}" ]]; then
+        candidate="${!env_name}"
+        if "${candidate}" --version >/dev/null 2>&1; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    fi
+
+    if [[ -x "${system_path}" ]] && "${system_path}" --version >/dev/null 2>&1; then
+        printf '%s\n' "${system_path}"
+        return 0
+    fi
+
+    candidate="$(command -v "${tool_name}" || true)"
+    if [[ -n "${candidate}" ]] && "${candidate}" --version >/dev/null 2>&1; then
+        printf '%s\n' "${candidate}"
+        return 0
+    fi
+
+    printf 'unable to find a working %s executable\n' "${tool_name}" >&2
+    return 1
+}
+
 mkdir -p "${build_dir}" "${target_dir}"
 
-cargo_cmd=(cargo rustc --manifest-path "${src_dir}/Cargo.toml" --lib --target-dir "${target_dir}")
+cargo_bin="$(resolve_rust_tool CARGO /usr/bin/cargo cargo)"
+rustc_bin="$(resolve_rust_tool RUSTC /usr/bin/rustc rustc)"
+
+cargo_cmd=("${cargo_bin}" rustc --manifest-path "${src_dir}/Cargo.toml" --lib --target-dir "${target_dir}")
 profile_dir=${profile}
 case "${profile}" in
     debug)
@@ -42,7 +74,7 @@ if [[ -f "${src_dir}/Cargo.lock" ]]; then
 fi
 
 set +e
-output="$("${cargo_cmd[@]}" 2>&1)"
+output="$(RUSTC="${rustc_bin}" "${cargo_cmd[@]}" 2>&1)"
 cargo_status=$?
 set -e
 printf '%s\n' "${output}" >"${build_dir}/rust-native-static-libs.txt"
