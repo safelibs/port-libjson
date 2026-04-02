@@ -1,0 +1,16 @@
+#!/bin/sh
+
+export _JSON_C_STRERROR_ENABLE=1
+
+if test -z "$srcdir"; then
+    srcdir="${0%/*}"
+    test "$srcdir" = "$0" && srcdir=.
+    test -z "$srcdir" && srcdir=.
+fi
+. "$srcdir/test-defs.sh"
+
+filename=$(basename "$0")
+filename="${filename%.*}"
+
+run_output_test $filename "$srcdir"
+exit $?

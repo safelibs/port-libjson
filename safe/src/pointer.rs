@@ -49,6 +49,10 @@ fn unescape_object_path(segment: &[u8]) -> Vec<c_char> {
     nul_terminated(bytes)
 }
 
+fn literal_object_path(segment: &[u8]) -> Vec<c_char> {
+    nul_terminated(segment.to_vec())
+}
+
 fn parse_index(segment: &[u8]) -> Result<size_t, c_int> {
     match segment.len() {
         1 => {
@@ -101,7 +105,7 @@ unsafe fn json_pointer_get_single_path(
         return Err(ENOENT);
     }
 
-    Ok((child, Some(key), 0))
+    Ok((child, Some(literal_object_path(segment)), 0))
 }
 
 unsafe fn json_pointer_result_get_recursive_bytes(
@@ -238,7 +242,7 @@ unsafe fn json_pointer_set_single_path(
     }
 
     if object::json_object_is_type_impl(parent, JSON_TYPE_OBJECT) != 0 {
-        let key = unescape_object_path(segment);
+        let key = literal_object_path(segment);
         return object::json_object_object_add_impl(parent, key.as_ptr(), value);
     }
 

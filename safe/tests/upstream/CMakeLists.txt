@@ -23,6 +23,7 @@ set(ALL_TEST_NAMES
     test_charcase
     test_compare
     test_deep_copy
+    test_deep_copy_serializer_userdata
     test_double_serializer
     test_float
     test_int_add

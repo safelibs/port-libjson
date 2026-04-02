@@ -365,6 +365,31 @@
             "m~n": 8
         }
     },
+    { "comment": "escaped add keeps final object key literal",
+      "doc": { },
+      "patch": [{ "op": "add", "path": "/a~1b", "value": 1 }],
+      "expected": { "a~1b": 1 } },
+
+    { "comment": "escaped replace keeps final object key literal",
+      "doc": { "a/b": 1 },
+      "patch": [{ "op": "replace", "path": "/a~1b", "value": 9 }],
+      "expected": { "a/b": 1, "a~1b": 9 } },
+
+    { "comment": "escaped remove leaves object key unchanged",
+      "doc": { "a/b": 1, "m~n": 8 },
+      "patch": [{ "op": "remove", "path": "/a~1b" }],
+      "expected": { "a/b": 1, "m~n": 8 } },
+
+    { "comment": "escaped copy keeps literal destination key",
+      "doc": { "a/b": 1 },
+      "patch": [{ "op": "copy", "from": "/a~1b", "path": "/x~1y" }],
+      "expected": { "a/b": 1, "x~1y": 1 } },
+
+    { "comment": "escaped move adds literal destination and preserves source",
+      "doc": { "a/b": 1 },
+      "patch": [{ "op": "move", "from": "/a~1b", "path": "/x~1y" }],
+      "expected": { "a/b": 1, "x~1y": 1 } },
+
     { "comment": "Move to same location has no effect",
       "doc": {"foo": 1},
       "patch": [{"op": "move", "from": "/foo", "path": "/foo"}],

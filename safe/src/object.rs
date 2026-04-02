@@ -1006,7 +1006,7 @@ unsafe fn copy_serializer_data(src: *mut json_object, dst: *mut json_object) -> 
     let src_inner = as_json_box(src).expect("valid source object");
     let dst_inner = as_json_box_mut(dst).expect("valid destination object");
 
-    if src_inner.userdata.is_null() && dst_inner.user_delete.is_none() {
+    if src_inner.userdata.is_null() && src_inner.user_delete.is_none() {
         return 0;
     }
 
@@ -1040,9 +1040,13 @@ unsafe fn copy_serializer_data(src: *mut json_object, dst: *mut json_object) -> 
         return 0;
     }
 
+    let serializer_ptr = dst_inner
+        .to_json_string
+        .map(|func| func as *const c_void)
+        .unwrap_or(ptr::null());
     errors::set_last_err_fmt(format_args!(
-        "json_object_copy_serializer_data: unable to copy unknown serializer data: {:?}\n",
-        dst_inner.to_json_string.map(|f| f as usize)
+        "json_object_copy_serializer_data: unable to copy unknown serializer data: {:p}\n",
+        serializer_ptr
     ));
     -1
 }
