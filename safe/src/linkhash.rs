@@ -193,7 +193,8 @@ unsafe extern "C" fn lh_perllike_str_hash(key: *const c_void) -> c_ulong
     let mut hashval = 1_u32;
     for byte in bytes
     {
-        hashval = hashval.wrapping_mul(33).wrapping_add(*byte as u32);
+        let promoted = (*byte as c_char as c_int) as u32;
+        hashval = hashval.wrapping_mul(33).wrapping_add(promoted);
     }
     hashval as c_ulong
 }
@@ -333,6 +334,24 @@ pub(crate) unsafe fn lh_table_resize_impl(t: *mut lh_table, new_size: c_int) -> 
     (*t).tail = (*new_t).tail;
     free(new_t.cast());
     0
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+    use std::ffi::CString;
+
+    #[test]
+    fn perllike_hash_uses_c_char_promotion_for_high_bytes()
+    {
+        let key = CString::new(vec![0xff]).expect("CString");
+        let expected = 1_u32
+            .wrapping_mul(33)
+            .wrapping_add(((0xff_u8 as c_char) as c_int) as u32);
+        let actual = unsafe { lh_perllike_str_hash(key.as_ptr().cast()) as u32 };
+        assert_eq!(actual, expected);
+    }
 }
 
 pub(crate) unsafe fn lh_table_free_impl(t: *mut lh_table)

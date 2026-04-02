@@ -350,6 +350,7 @@ if(BUILD_SHARED_LIBS)
     add_library(${PROJECT_NAME} SHARED ${PROJECT_BINARY_DIR}/json-c-empty.c)
     add_dependencies(${PROJECT_NAME} rust-staticlib)
     set_target_properties(${PROJECT_NAME} PROPERTIES
+        LINK_DEPENDS "${RUST_STATICLIB}"
         VERSION 5.3.0
         SOVERSION 5
     )

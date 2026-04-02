@@ -56,7 +56,7 @@ static unsigned long perllike_hash(const char *text)
 	unsigned long hashval = 1;
 
 	while (*text != '\0')
-		hashval = hashval * 33 + (unsigned char)*text++;
+		hashval = hashval * 33 + *text++;
 	return hashval;
 }
 
@@ -139,12 +139,14 @@ static void test_printbuf(void)
 static void test_hash_modes(void)
 {
 	struct lh_table *table;
+	const char high_bytes[] = { (char)0xff, '\0' };
 
 	assert(json_global_set_string_hash(JSON_C_STR_HASH_PERLLIKE) == 0);
 	table = lh_kchar_table_new(4, NULL);
 	assert(table != NULL);
 	assert(table->hash_fn != NULL);
 	assert(table->hash_fn("abc") == perllike_hash("abc"));
+	assert(table->hash_fn(high_bytes) == perllike_hash(high_bytes));
 	lh_table_free(table);
 
 	assert(json_global_set_string_hash(JSON_C_STR_HASH_DFLT) == 0);
