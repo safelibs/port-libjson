@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-build_dir=${1:?usage: check-layout.sh <safe-build-dir>}
-
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 safe_dir="${repo_root}/safe"
+build_dir=${1:-"${safe_dir}/build"}
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "${tmpdir}"' EXIT
 
