@@ -1,37 +1,30 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include <errno.h>
+#include <assert.h>
 #include <stdio.h>
 
-static const char *errno_name(int errnum)
-{
-	switch (errnum)
-	{
-	case EINVAL: return "EINVAL";
-	case ENOENT: return "ENOENT";
-	case EBADF: return "EBADF";
-	case ENOMEM: return "ENOMEM";
-	default: break;
-	}
-
-	static char buf[32];
-	(void)snprintf(buf, sizeof(buf), "%d", errnum);
-	return buf;
-}
-
-static const char *format_errno(int errnum)
-{
-	static char buf[40];
-	(void)snprintf(buf, sizeof(buf), "ERRNO=%s", errno_name(errnum));
-	return buf;
-}
+#include "json_util.h"
 
 int main(int argc, char **argv)
 {
+	struct json_object *jso;
+	const char *last_err;
+
 	(void)argc;
 	(void)argv;
-	puts(format_errno(10000));
-	puts(format_errno(999));
+
+	jso = json_object_from_file("not_present.json");
+	assert(jso == NULL);
+	last_err = json_util_get_last_err();
+	assert(last_err != NULL);
+	fputs(last_err, stdout);
+
+	jso = json_object_from_fd(-1);
+	assert(jso == NULL);
+	last_err = json_util_get_last_err();
+	assert(last_err != NULL);
+	fputs(last_err, stdout);
+
 	return 0;
 }
