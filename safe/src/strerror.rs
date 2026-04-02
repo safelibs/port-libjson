@@ -1,15 +1,15 @@
 use crate::abi::*;
-use crate::errors::StaticCell;
 use core::sync::atomic::{AtomicI8, Ordering};
-use std::cell::UnsafeCell;
+use std::cell::RefCell;
 
-extern "C"
-{
+extern "C" {
     fn strerror(errnum: c_int) -> *mut c_char;
 }
 
 static ENABLE_STATE: AtomicI8 = AtomicI8::new(0);
-static ERRNO_BUF: StaticCell<[c_char; 128]> = StaticCell(UnsafeCell::new([0; 128]));
+thread_local! {
+    static ERRNO_BUF: RefCell<[c_char; 128]> = const { RefCell::new([0; 128]) };
+}
 
 const EPERM: c_int = 1;
 const ENOENT: c_int = 2;
@@ -47,10 +47,8 @@ const EDOM: c_int = 33;
 const ERANGE: c_int = 34;
 const EDEADLK: c_int = 35;
 
-fn errno_name(errno_in: c_int) -> Option<&'static str>
-{
-    match errno_in
-    {
+fn errno_name(errno_in: c_int) -> Option<&'static str> {
+    match errno_in {
         EPERM => Some("EPERM"),
         ENOENT => Some("ENOENT"),
         ESRCH => Some("ESRCH"),
@@ -90,42 +88,41 @@ fn errno_name(errno_in: c_int) -> Option<&'static str>
     }
 }
 
-fn strerror_mode() -> i8
-{
+fn strerror_mode() -> i8 {
     let state = ENABLE_STATE.load(Ordering::Acquire);
-    if state != 0
-    {
+    if state != 0 {
         return state;
     }
 
-    let discovered = if std::env::var_os("_JSON_C_STRERROR_ENABLE").is_some() { 1 } else { -1 };
+    let discovered = if std::env::var_os("_JSON_C_STRERROR_ENABLE").is_some() {
+        1
+    } else {
+        -1
+    };
     let _ = ENABLE_STATE.compare_exchange(0, discovered, Ordering::AcqRel, Ordering::Acquire);
     ENABLE_STATE.load(Ordering::Acquire)
 }
 
-fn set_errno_buf(message: &str) -> *mut c_char
-{
-    let buf = unsafe { &mut *ERRNO_BUF.0.get() };
-    let bytes = message.as_bytes();
-    let len = bytes.len().min(buf.len() - 1);
+fn set_errno_buf(message: &str) -> *mut c_char {
+    ERRNO_BUF.with(|buf| {
+        let mut buf = buf.borrow_mut();
+        let bytes = message.as_bytes();
+        let len = bytes.len().min(buf.len() - 1);
 
-    for (dst, src) in buf.iter_mut().zip(bytes.iter()).take(len)
-    {
-        *dst = *src as c_char;
-    }
-    buf[len] = 0;
-    buf.as_mut_ptr()
+        for (dst, src) in buf.iter_mut().zip(bytes.iter()).take(len) {
+            *dst = *src as c_char;
+        }
+        buf[len] = 0;
+        buf.as_mut_ptr()
+    })
 }
 
-pub(crate) unsafe fn _json_c_strerror_impl(errno_in: c_int) -> *mut c_char
-{
-    if strerror_mode() == -1
-    {
+pub(crate) unsafe fn _json_c_strerror_impl(errno_in: c_int) -> *mut c_char {
+    if strerror_mode() == -1 {
         return strerror(errno_in);
     }
 
-    if let Some(name) = errno_name(errno_in)
-    {
+    if let Some(name) = errno_name(errno_in) {
         return set_errno_buf(&format!("ERRNO={name}"));
     }
 

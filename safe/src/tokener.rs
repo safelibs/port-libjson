@@ -96,69 +96,106 @@ fn is_ws_char(c: u8) -> bool {
     matches!(c, b' ' | b'\t' | b'\n' | b'\r')
 }
 
-unsafe fn stack_entry(tok: *mut json_tokener, depth: c_int) -> *mut json_tokener_srec {
-    (*tok).stack.add(depth as usize)
+fn tok_ref_mut<'a>(tok: *mut json_tokener) -> &'a mut json_tokener {
+    unsafe { &mut *tok }
 }
 
-unsafe fn active_entry(tok: *mut json_tokener) -> *mut json_tokener_srec {
-    stack_entry(tok, (*tok).depth)
+fn stack_entry_mut<'a>(tok: *mut json_tokener, depth: c_int) -> &'a mut json_tokener_srec {
+    unsafe { &mut *tok_ref_mut(tok).stack.add(depth as usize) }
 }
 
-unsafe fn state(tok: *mut json_tokener) -> json_tokener_state {
-    (*active_entry(tok)).state
+fn active_entry_mut<'a>(tok: *mut json_tokener) -> &'a mut json_tokener_srec {
+    let depth = tok_ref_mut(tok).depth;
+    stack_entry_mut(tok, depth)
 }
 
-unsafe fn set_state(tok: *mut json_tokener, value: json_tokener_state) {
-    (*active_entry(tok)).state = value;
+fn state(tok: *mut json_tokener) -> json_tokener_state {
+    active_entry_mut(tok).state
 }
 
-unsafe fn saved_state(tok: *mut json_tokener) -> json_tokener_state {
-    (*active_entry(tok)).saved_state
+fn set_state(tok: *mut json_tokener, value: json_tokener_state) {
+    active_entry_mut(tok).state = value;
 }
 
-unsafe fn set_saved_state(tok: *mut json_tokener, value: json_tokener_state) {
-    (*active_entry(tok)).saved_state = value;
+fn saved_state(tok: *mut json_tokener) -> json_tokener_state {
+    active_entry_mut(tok).saved_state
 }
 
-unsafe fn current(tok: *mut json_tokener) -> *mut json_object {
-    (*active_entry(tok)).current
+fn set_saved_state(tok: *mut json_tokener, value: json_tokener_state) {
+    active_entry_mut(tok).saved_state = value;
 }
 
-unsafe fn set_current(tok: *mut json_tokener, value: *mut json_object) {
-    (*active_entry(tok)).current = value;
+fn current(tok: *mut json_tokener) -> *mut json_object {
+    active_entry_mut(tok).current
 }
 
-unsafe fn obj_field_name(tok: *mut json_tokener) -> *mut c_char {
-    (*active_entry(tok)).obj_field_name
+fn set_current(tok: *mut json_tokener, value: *mut json_object) {
+    active_entry_mut(tok).current = value;
 }
 
-unsafe fn set_obj_field_name(tok: *mut json_tokener, value: *mut c_char) {
-    (*active_entry(tok)).obj_field_name = value;
+fn obj_field_name(tok: *mut json_tokener) -> *mut c_char {
+    active_entry_mut(tok).obj_field_name
 }
 
-unsafe fn printbuf_len(pb: *mut crate::abi::printbuf) -> c_int {
-    (*pb).bpos
+fn set_obj_field_name(tok: *mut json_tokener, value: *mut c_char) {
+    active_entry_mut(tok).obj_field_name = value;
 }
 
-unsafe fn buffer_bytes<'a>(pb: *mut crate::abi::printbuf, len: usize) -> &'a [u8] {
-    std::slice::from_raw_parts((*pb).buf.cast::<u8>(), len)
+fn printbuf_len(pb: *mut crate::abi::printbuf) -> c_int {
+    unsafe { (*pb).bpos }
 }
 
-unsafe fn printbuf_append_checked(
+fn buffer_bytes<'a>(pb: *mut crate::abi::printbuf, len: usize) -> &'a [u8] {
+    unsafe { std::slice::from_raw_parts((*pb).buf.cast::<u8>(), len) }
+}
+
+fn append_replacement_char_c(pb: *mut crate::abi::printbuf) -> c_int {
+    unsafe { utf8::append_replacement_char(pb) }
+}
+
+fn append_codepoint_c(pb: *mut crate::abi::printbuf, ucs: c_uint) -> c_int {
+    unsafe { utf8::append_codepoint(pb, ucs) }
+}
+
+fn numeric_errno() -> c_int {
+    unsafe { *numeric::errno_location() }
+}
+
+fn first_buf_byte(buf: *const c_char) -> u8 {
+    unsafe { *buf.cast::<u8>() }
+}
+
+fn parse_int64_c(buf: *const c_char, retval: *mut int64_t) -> c_int {
+    unsafe { numeric::json_parse_int64_impl(buf, retval) }
+}
+
+fn parse_uint64_c(buf: *const c_char, retval: *mut uint64_t) -> c_int {
+    unsafe { numeric::json_parse_uint64_impl(buf, retval) }
+}
+
+fn parse_double_len_c(buf: *const c_char, len: c_int, retval: *mut c_double) -> c_int {
+    unsafe { numeric::json_parse_double_len_impl(buf, len, retval) }
+}
+
+fn parse_ex_call(tok: *mut json_tokener, str_: *const c_char, len: c_int) -> *mut json_object {
+    unsafe { json_tokener_parse_ex_impl(tok, str_, len) }
+}
+
+fn printbuf_append_checked(
     tok: *mut json_tokener,
     pb: *mut crate::abi::printbuf,
     buf: *const c_char,
     len: c_int,
 ) -> bool {
     if printbuf_impl::printbuf_memappend_impl(pb, buf, len) < 0 {
-        (*tok).err = JSON_TOKENER_ERROR_MEMORY;
+        tok_ref_mut(tok).err = JSON_TOKENER_ERROR_MEMORY;
         false
     } else {
         true
     }
 }
 
-unsafe fn printbuf_append_byte_checked(
+fn printbuf_append_byte_checked(
     tok: *mut json_tokener,
     pb: *mut crate::abi::printbuf,
     byte: u8,
@@ -167,34 +204,31 @@ unsafe fn printbuf_append_byte_checked(
     printbuf_append_checked(tok, pb, buf.as_ptr(), 1)
 }
 
-unsafe fn append_replacement_char_checked(
-    tok: *mut json_tokener,
-    pb: *mut crate::abi::printbuf,
-) -> bool {
-    if utf8::append_replacement_char(pb) < 0 {
-        (*tok).err = JSON_TOKENER_ERROR_MEMORY;
+fn append_replacement_char_checked(tok: *mut json_tokener, pb: *mut crate::abi::printbuf) -> bool {
+    if append_replacement_char_c(pb) < 0 {
+        tok_ref_mut(tok).err = JSON_TOKENER_ERROR_MEMORY;
         false
     } else {
         true
     }
 }
 
-unsafe fn append_codepoint_checked(
+fn append_codepoint_checked(
     tok: *mut json_tokener,
     pb: *mut crate::abi::printbuf,
     ucs: c_uint,
 ) -> bool {
-    if utf8::append_codepoint(pb, ucs) < 0 {
-        (*tok).err = JSON_TOKENER_ERROR_MEMORY;
+    if append_codepoint_c(pb, ucs) < 0 {
+        tok_ref_mut(tok).err = JSON_TOKENER_ERROR_MEMORY;
         false
     } else {
         true
     }
 }
 
-unsafe fn ascii_prefix_matches(tok: *mut json_tokener, literal: &[u8], size: usize) -> bool {
-    let strict = ((*tok).flags & JSON_TOKENER_STRICT) != 0;
-    let actual = buffer_bytes((*tok).pb, size);
+fn ascii_prefix_matches(tok: *mut json_tokener, literal: &[u8], size: usize) -> bool {
+    let strict = (tok_ref_mut(tok).flags & JSON_TOKENER_STRICT) != 0;
+    let actual = buffer_bytes(tok_ref_mut(tok).pb, size);
     actual
         .iter()
         .zip(literal.iter())
@@ -202,15 +236,17 @@ unsafe fn ascii_prefix_matches(tok: *mut json_tokener, literal: &[u8], size: usi
         .all(|(lhs, rhs)| *lhs == *rhs || (!strict && lhs.eq_ignore_ascii_case(rhs)))
 }
 
-unsafe fn json_tokener_reset_level(tok: *mut json_tokener, depth: c_int) {
-    let entry = stack_entry(tok, depth);
-    (*entry).state = JSON_TOKENER_STATE_EATWS;
-    (*entry).saved_state = JSON_TOKENER_STATE_START;
-    (*entry).obj = ptr::null_mut();
-    object::json_object_put_impl((*entry).current);
-    (*entry).current = ptr::null_mut();
-    free((*entry).obj_field_name.cast());
-    (*entry).obj_field_name = ptr::null_mut();
+fn json_tokener_reset_level(tok: *mut json_tokener, depth: c_int) {
+    let entry = stack_entry_mut(tok, depth);
+    entry.state = JSON_TOKENER_STATE_EATWS;
+    entry.saved_state = JSON_TOKENER_STATE_START;
+    entry.obj = ptr::null_mut();
+    object::json_object_put_impl(entry.current);
+    unsafe {
+        free(entry.obj_field_name.cast());
+    }
+    entry.current = ptr::null_mut();
+    entry.obj_field_name = ptr::null_mut();
 }
 
 unsafe fn peek_char(
@@ -244,16 +280,18 @@ unsafe fn peek_char(
     true
 }
 
-unsafe fn advance_char(cursor: &mut *const u8, tok: *mut json_tokener, c: u8) -> u8 {
-    *cursor = (*cursor).add(1);
-    (*tok).char_offset += 1;
+fn advance_char(cursor: &mut *const u8, tok: *mut json_tokener, c: u8) -> u8 {
+    unsafe {
+        *cursor = (*cursor).add(1);
+    }
+    tok_ref_mut(tok).char_offset += 1;
     c
 }
 
-unsafe fn parse_string_escape(tok: *mut json_tokener, c: u8) -> bool {
+fn parse_string_escape(tok: *mut json_tokener, c: u8) -> bool {
     match c {
         b'"' | b'\\' | b'/' => {
-            if !printbuf_append_byte_checked(tok, (*tok).pb, c) {
+            if !printbuf_append_byte_checked(tok, tok_ref_mut(tok).pb, c) {
                 return false;
             }
             set_state(tok, saved_state(tok));
@@ -267,57 +305,60 @@ unsafe fn parse_string_escape(tok: *mut json_tokener, c: u8) -> bool {
                 b't' => b'\t',
                 _ => b'\x0c',
             };
-            if !printbuf_append_byte_checked(tok, (*tok).pb, mapped) {
+            if !printbuf_append_byte_checked(tok, tok_ref_mut(tok).pb, mapped) {
                 return false;
             }
             set_state(tok, saved_state(tok));
             true
         }
         b'u' => {
-            (*tok).ucs_char = 0;
-            (*tok).st_pos = 0;
+            tok_ref_mut(tok).ucs_char = 0;
+            tok_ref_mut(tok).st_pos = 0;
             set_state(tok, JSON_TOKENER_STATE_ESCAPE_UNICODE);
             true
         }
         _ => {
-            (*tok).err = JSON_TOKENER_ERROR_PARSE_STRING;
+            tok_ref_mut(tok).err = JSON_TOKENER_ERROR_PARSE_STRING;
             false
         }
     }
 }
 
-unsafe fn handle_completed_number(tok: *mut json_tokener) -> bool {
-    let buf = (*(*tok).pb).buf;
-    let len = printbuf_len((*tok).pb);
+fn handle_completed_number(tok: *mut json_tokener) -> bool {
+    let tok_inner = tok_ref_mut(tok);
+    let buf = unsafe { (*tok_inner.pb).buf };
+    let len = printbuf_len(tok_inner.pb);
     let mut num64 = 0_i64;
     let mut numuint64 = 0_u64;
     let mut numd = 0_f64;
 
-    if (*tok).is_double == 0
-        && *buf.cast::<u8>() == b'-'
-        && numeric::json_parse_int64_impl(buf, &mut num64) == 0
+    if tok_inner.is_double == 0
+        && first_buf_byte(buf) == b'-'
+        && parse_int64_c(buf, &mut num64) == 0
     {
-        if *numeric::errno_location() == 34 && ((*tok).flags & JSON_TOKENER_STRICT) != 0 {
-            (*tok).err = JSON_TOKENER_ERROR_PARSE_NUMBER;
+        if numeric_errno() == 34 && (tok_inner.flags & JSON_TOKENER_STRICT) != 0 {
+            tok_inner.err = JSON_TOKENER_ERROR_PARSE_NUMBER;
             return false;
         }
         let current = object::json_object_new_int64_impl(num64);
         if current.is_null() {
-            (*tok).err = JSON_TOKENER_ERROR_MEMORY;
+            tok_inner.err = JSON_TOKENER_ERROR_MEMORY;
             return false;
         }
         set_current(tok, current);
-    } else if (*tok).is_double == 0
-        && *buf.cast::<u8>() != b'-'
-        && numeric::json_parse_uint64_impl(buf, &mut numuint64) == 0
+    } else if tok_inner.is_double == 0
+        && first_buf_byte(buf) != b'-'
+        && parse_uint64_c(buf, &mut numuint64) == 0
     {
-        if *numeric::errno_location() == 34 && ((*tok).flags & JSON_TOKENER_STRICT) != 0 {
-            (*tok).err = JSON_TOKENER_ERROR_PARSE_NUMBER;
+        if numeric_errno() == 34 && (tok_inner.flags & JSON_TOKENER_STRICT) != 0 {
+            tok_inner.err = JSON_TOKENER_ERROR_PARSE_NUMBER;
             return false;
         }
-        if numuint64 != 0 && *buf.cast::<u8>() == b'0' && ((*tok).flags & JSON_TOKENER_STRICT) != 0
+        if numuint64 != 0
+            && first_buf_byte(buf) == b'0'
+            && (tok_inner.flags & JSON_TOKENER_STRICT) != 0
         {
-            (*tok).err = JSON_TOKENER_ERROR_PARSE_NUMBER;
+            tok_inner.err = JSON_TOKENER_ERROR_PARSE_NUMBER;
             return false;
         }
 
@@ -327,20 +368,19 @@ unsafe fn handle_completed_number(tok: *mut json_tokener) -> bool {
             object::json_object_new_uint64_impl(numuint64)
         };
         if current.is_null() {
-            (*tok).err = JSON_TOKENER_ERROR_MEMORY;
+            tok_inner.err = JSON_TOKENER_ERROR_MEMORY;
             return false;
         }
         set_current(tok, current);
-    } else if (*tok).is_double != 0 && numeric::json_parse_double_len_impl(buf, len, &mut numd) == 0
-    {
+    } else if tok_inner.is_double != 0 && parse_double_len_c(buf, len, &mut numd) == 0 {
         let current = object::json_object_new_double_s_impl(numd, buf);
         if current.is_null() {
-            (*tok).err = JSON_TOKENER_ERROR_MEMORY;
+            tok_inner.err = JSON_TOKENER_ERROR_MEMORY;
             return false;
         }
         set_current(tok, current);
     } else {
-        (*tok).err = JSON_TOKENER_ERROR_PARSE_NUMBER;
+        tok_inner.err = JSON_TOKENER_ERROR_PARSE_NUMBER;
         return false;
     }
 
@@ -349,7 +389,7 @@ unsafe fn handle_completed_number(tok: *mut json_tokener) -> bool {
     true
 }
 
-pub(crate) unsafe fn json_tokener_error_desc_impl(jerr: json_tokener_error) -> *const c_char {
+pub(crate) fn json_tokener_error_desc_impl(jerr: json_tokener_error) -> *const c_char {
     let idx = jerr as usize;
     if idx >= JSON_TOKENER_ERRORS.len() {
         UNKNOWN_ERROR_DESC.as_ptr().cast()
@@ -358,66 +398,73 @@ pub(crate) unsafe fn json_tokener_error_desc_impl(jerr: json_tokener_error) -> *
     }
 }
 
-pub(crate) unsafe fn json_tokener_get_error_impl(tok: *mut json_tokener) -> json_tokener_error {
+pub(crate) fn json_tokener_get_error_impl(tok: *mut json_tokener) -> json_tokener_error {
     if tok.is_null() {
         JSON_TOKENER_SUCCESS
     } else {
-        (*tok).err
+        tok_ref_mut(tok).err
     }
 }
 
-pub(crate) unsafe fn json_tokener_new_ex_impl(depth: c_int) -> *mut json_tokener {
+pub(crate) fn json_tokener_new_ex_impl(depth: c_int) -> *mut json_tokener {
     if depth < 1 {
         return ptr::null_mut();
     }
 
-    let tok = calloc(1, size_of::<json_tokener>()).cast::<json_tokener>();
+    let tok = unsafe { calloc(1, size_of::<json_tokener>()).cast::<json_tokener>() };
     if tok.is_null() {
         return ptr::null_mut();
     }
 
-    (*tok).stack =
-        calloc(depth as size_t, size_of::<json_tokener_srec>()).cast::<json_tokener_srec>();
-    if (*tok).stack.is_null() {
-        free(tok.cast());
+    tok_ref_mut(tok).stack = unsafe {
+        calloc(depth as size_t, size_of::<json_tokener_srec>()).cast::<json_tokener_srec>()
+    };
+    if tok_ref_mut(tok).stack.is_null() {
+        unsafe {
+            free(tok.cast());
+        }
         return ptr::null_mut();
     }
 
-    (*tok).pb = printbuf_impl::printbuf_new_impl();
-    if (*tok).pb.is_null() {
-        free((*tok).stack.cast());
-        free(tok.cast());
+    tok_ref_mut(tok).pb = printbuf_impl::printbuf_new_impl();
+    if tok_ref_mut(tok).pb.is_null() {
+        unsafe {
+            free(tok_ref_mut(tok).stack.cast());
+            free(tok.cast());
+        }
         return ptr::null_mut();
     }
 
-    (*tok).max_depth = depth;
+    tok_ref_mut(tok).max_depth = depth;
     json_tokener_reset_impl(tok);
     tok
 }
 
-pub(crate) unsafe fn json_tokener_new_impl() -> *mut json_tokener {
+pub(crate) fn json_tokener_new_impl() -> *mut json_tokener {
     json_tokener_new_ex_impl(JSON_TOKENER_DEFAULT_DEPTH)
 }
 
-pub(crate) unsafe fn json_tokener_free_impl(tok: *mut json_tokener) {
+pub(crate) fn json_tokener_free_impl(tok: *mut json_tokener) {
     if tok.is_null() {
         return;
     }
 
     json_tokener_reset_impl(tok);
-    if !(*tok).pb.is_null() {
-        printbuf_impl::printbuf_free_impl((*tok).pb);
+    if !tok_ref_mut(tok).pb.is_null() {
+        printbuf_impl::printbuf_free_impl(tok_ref_mut(tok).pb);
     }
-    free((*tok).stack.cast());
-    free(tok.cast());
+    unsafe {
+        free(tok_ref_mut(tok).stack.cast());
+        free(tok.cast());
+    }
 }
 
-pub(crate) unsafe fn json_tokener_reset_impl(tok: *mut json_tokener) {
+pub(crate) fn json_tokener_reset_impl(tok: *mut json_tokener) {
     if tok.is_null() {
         return;
     }
 
-    let mut ii = (*tok).depth;
+    let mut ii = tok_ref_mut(tok).depth;
     loop {
         json_tokener_reset_level(tok, ii);
         if ii == 0 {
@@ -425,16 +472,16 @@ pub(crate) unsafe fn json_tokener_reset_impl(tok: *mut json_tokener) {
         }
         ii -= 1;
     }
-    (*tok).depth = 0;
-    (*tok).err = JSON_TOKENER_SUCCESS;
+    tok_ref_mut(tok).depth = 0;
+    tok_ref_mut(tok).err = JSON_TOKENER_SUCCESS;
 }
 
-pub(crate) unsafe fn json_tokener_parse_impl(str_: *const c_char) -> *mut json_object {
+pub(crate) fn json_tokener_parse_impl(str_: *const c_char) -> *mut json_object {
     let mut ignored = JSON_TOKENER_SUCCESS;
     json_tokener_parse_verbose_impl(str_, &mut ignored)
 }
 
-pub(crate) unsafe fn json_tokener_parse_verbose_impl(
+pub(crate) fn json_tokener_parse_verbose_impl(
     str_: *const c_char,
     error: *mut json_tokener_error,
 ) -> *mut json_object {
@@ -443,11 +490,13 @@ pub(crate) unsafe fn json_tokener_parse_verbose_impl(
         return ptr::null_mut();
     }
 
-    let mut obj = json_tokener_parse_ex_impl(tok, str_, -1);
+    let mut obj = parse_ex_call(tok, str_, -1);
     if !error.is_null() {
-        *error = (*tok).err;
+        unsafe {
+            *error = tok_ref_mut(tok).err;
+        }
     }
-    if (*tok).err != JSON_TOKENER_SUCCESS {
+    if tok_ref_mut(tok).err != JSON_TOKENER_SUCCESS {
         if !obj.is_null() {
             object::json_object_put_impl(obj);
         }
@@ -458,19 +507,19 @@ pub(crate) unsafe fn json_tokener_parse_verbose_impl(
     obj
 }
 
-pub(crate) unsafe fn json_tokener_set_flags_impl(tok: *mut json_tokener, flags: c_int) {
+pub(crate) fn json_tokener_set_flags_impl(tok: *mut json_tokener, flags: c_int) {
     if tok.is_null() {
         return;
     }
-    (*tok).flags = flags;
+    tok_ref_mut(tok).flags = flags;
 }
 
-pub(crate) unsafe fn json_tokener_get_parse_end_impl(tok: *mut json_tokener) -> size_t {
+pub(crate) fn json_tokener_get_parse_end_impl(tok: *mut json_tokener) -> size_t {
     if tok.is_null() {
         return 0;
     }
-    debug_assert!((*tok).char_offset >= 0);
-    (*tok).char_offset as size_t
+    debug_assert!(tok_ref_mut(tok).char_offset >= 0);
+    tok_ref_mut(tok).char_offset as size_t
 }
 
 pub(crate) unsafe fn json_tokener_parse_ex_impl(

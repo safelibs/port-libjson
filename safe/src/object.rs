@@ -77,15 +77,15 @@ pub(crate) fn set_errno(value: c_int) {
     }
 }
 
-pub(crate) unsafe fn as_json_box<'a>(obj: *const json_object) -> Option<&'a JsonObjectBox> {
-    obj.cast::<JsonObjectBox>().as_ref()
+pub(crate) fn as_json_box<'a>(obj: *const json_object) -> Option<&'a JsonObjectBox> {
+    unsafe { obj.cast::<JsonObjectBox>().as_ref() }
 }
 
-pub(crate) unsafe fn as_json_box_mut<'a>(obj: *mut json_object) -> Option<&'a mut JsonObjectBox> {
-    obj.cast::<JsonObjectBox>().as_mut()
+pub(crate) fn as_json_box_mut<'a>(obj: *mut json_object) -> Option<&'a mut JsonObjectBox> {
+    unsafe { obj.cast::<JsonObjectBox>().as_mut() }
 }
 
-pub(crate) unsafe fn string_bytes<'a>(obj: *const json_object) -> Option<&'a [u8]> {
+pub(crate) fn string_bytes<'a>(obj: *const json_object) -> Option<&'a [u8]> {
     let inner = as_json_box(obj)?;
     match &inner.data {
         JsonData::String(bytes) => Some(&bytes[..bytes.len().saturating_sub(1)]),
@@ -93,7 +93,7 @@ pub(crate) unsafe fn string_bytes<'a>(obj: *const json_object) -> Option<&'a [u8
     }
 }
 
-pub(crate) unsafe fn object_table(obj: *const json_object) -> *mut lh_table {
+pub(crate) fn object_table(obj: *const json_object) -> *mut lh_table {
     match as_json_box(obj) {
         Some(inner) => match inner.data {
             JsonData::Object { table } => table,
@@ -103,7 +103,7 @@ pub(crate) unsafe fn object_table(obj: *const json_object) -> *mut lh_table {
     }
 }
 
-pub(crate) unsafe fn array_list_ptr(obj: *const json_object) -> *mut array_list {
+pub(crate) fn array_list_ptr(obj: *const json_object) -> *mut array_list {
     match as_json_box(obj) {
         Some(inner) => match inner.data {
             JsonData::Array { list } => list,
@@ -127,7 +127,7 @@ pub(crate) fn default_serializer_for_type(
     }
 }
 
-unsafe fn new_json_object(o_type: json_type, data: JsonData) -> *mut json_object {
+fn new_json_object(o_type: json_type, data: JsonData) -> *mut json_object {
     Box::into_raw(Box::new(JsonObjectBox {
         o_type,
         ref_count: AtomicU32::new(1),
@@ -140,8 +140,165 @@ unsafe fn new_json_object(o_type: json_type, data: JsonData) -> *mut json_object
     .cast()
 }
 
-unsafe fn alloc_key_copy(key: *const c_char) -> *mut c_char {
-    strdup(key)
+fn alloc_key_copy(key: *const c_char) -> *mut c_char {
+    unsafe { strdup(key) }
+}
+
+fn c_string_bytes<'a>(value: *const c_char) -> &'a [u8] {
+    unsafe { CStr::from_ptr(value).to_bytes() }
+}
+
+fn raw_string_bytes<'a>(value: *const c_char, len: c_int) -> &'a [u8] {
+    if len == 0 {
+        &[]
+    } else {
+        unsafe { std::slice::from_raw_parts(value.cast::<u8>(), len as usize) }
+    }
+}
+
+fn table_hash_fn(table: *mut lh_table) -> Option<lh_hash_fn> {
+    unsafe { (*table).hash_fn }
+}
+
+fn table_head(table: *mut lh_table) -> *mut lh_entry {
+    unsafe { (*table).head }
+}
+
+fn entry_key(entry: *mut lh_entry) -> *const c_void {
+    unsafe { (*entry).k }
+}
+
+fn entry_value(entry: *mut lh_entry) -> *mut json_object {
+    unsafe { (*entry).v.cast_mut().cast() }
+}
+
+fn set_entry_value(entry: *mut lh_entry, value: *mut json_object) {
+    unsafe {
+        (*entry).v = value.cast();
+    }
+}
+
+fn entry_next(entry: *mut lh_entry) -> *mut lh_entry {
+    unsafe { (*entry).next }
+}
+
+fn write_object_out(out: *mut *mut json_object, value: *mut json_object) {
+    unsafe {
+        *out = value;
+    }
+}
+
+fn object_out_is_null(out: *mut *mut json_object) -> bool {
+    unsafe { (*out).is_null() }
+}
+
+fn call_user_delete(
+    delete_fn: json_object_delete_fn,
+    obj: *mut json_object,
+    userdata: *mut c_void,
+) {
+    unsafe {
+        delete_fn(obj, userdata);
+    }
+}
+
+fn call_abort() -> ! {
+    unsafe { abort() }
+}
+
+fn call_strtod(input: *const c_char, end_ptr: &mut *mut c_char) -> c_double {
+    unsafe { strtod(input, end_ptr) }
+}
+
+fn c_char_value(ptr: *const c_char) -> c_char {
+    unsafe { *ptr }
+}
+
+fn bsearch_result_object(result: *mut c_void) -> *mut json_object {
+    unsafe { *result.cast::<*mut json_object>() }
+}
+
+fn call_hash_fn(hash_fn: lh_hash_fn, key: *const c_void) -> c_ulong {
+    unsafe { hash_fn(key) }
+}
+
+fn linkhash_kchar_table_new(size: c_int, free_fn: Option<lh_entry_free_fn>) -> *mut lh_table {
+    unsafe { linkhash::lh_kchar_table_new_impl(size, free_fn) }
+}
+
+fn linkhash_table_free(table: *mut lh_table) {
+    unsafe {
+        linkhash::lh_table_free_impl(table);
+    }
+}
+
+fn linkhash_table_length(table: *mut lh_table) -> c_int {
+    unsafe { linkhash::lh_table_length_impl(table) }
+}
+
+fn linkhash_lookup_entry_w_hash(
+    table: *mut lh_table,
+    key: *const c_void,
+    hash: c_ulong,
+) -> *mut lh_entry {
+    unsafe { linkhash::lh_table_lookup_entry_w_hash_impl(table, key, hash) }
+}
+
+fn linkhash_insert_w_hash(
+    table: *mut lh_table,
+    key: *const c_void,
+    value: *mut c_void,
+    hash: c_ulong,
+    opts: c_uint,
+) -> c_int {
+    unsafe { linkhash::lh_table_insert_w_hash_impl(table, key, value, hash, opts) }
+}
+
+fn linkhash_lookup_ex(
+    table: *mut lh_table,
+    key: *const c_void,
+    value_out: *mut *mut c_void,
+) -> json_bool {
+    unsafe { linkhash::lh_table_lookup_ex_impl(table, key, value_out) }
+}
+
+fn linkhash_delete(table: *mut lh_table, key: *const c_void) {
+    unsafe {
+        linkhash::lh_table_delete_impl(table, key);
+    }
+}
+
+fn parse_int64_c(buf: *const c_char, retval: *mut int64_t) -> c_int {
+    unsafe { crate::numeric::json_parse_int64_impl(buf, retval) }
+}
+
+fn parse_uint64_c(buf: *const c_char, retval: *mut uint64_t) -> c_int {
+    unsafe { crate::numeric::json_parse_uint64_impl(buf, retval) }
+}
+
+fn errno_get() -> c_int {
+    unsafe { *errno_ptr() }
+}
+
+fn errno_set(value: c_int) {
+    unsafe {
+        *errno_ptr() = value;
+    }
+}
+
+fn shallow_copy_call(
+    shallow_copy: json_c_shallow_copy_fn,
+    src: *mut json_object,
+    parent: *mut json_object,
+    key_in_parent: *const c_char,
+    index_in_parent: size_t,
+    dst: *mut *mut json_object,
+) -> c_int {
+    unsafe { shallow_copy(src, parent, key_in_parent, index_in_parent, dst) }
+}
+
+fn read_object_out(out: *mut *mut json_object) -> *mut json_object {
+    unsafe { *out }
 }
 
 unsafe extern "C" fn json_object_array_entry_free(data: *mut c_void) {
@@ -153,13 +310,15 @@ unsafe extern "C" fn json_object_lh_entry_free(entry: *mut lh_entry) {
         return;
     }
 
-    if (*entry).k_is_constant == 0 {
-        free((*entry).k.cast_mut());
+    if unsafe { (*entry).k_is_constant } == 0 {
+        unsafe {
+            free(entry_key(entry).cast_mut());
+        }
     }
-    json_object_put_impl((*entry).v.cast_mut().cast());
+    json_object_put_impl(entry_value(entry));
 }
 
-pub(crate) unsafe fn json_object_get_impl(obj: *mut json_object) -> *mut json_object {
+pub(crate) fn json_object_get_impl(obj: *mut json_object) -> *mut json_object {
     let Some(inner) = as_json_box(obj) else {
         return obj;
     };
@@ -178,12 +337,16 @@ fn serializer_matches(
 }
 
 fn is_userdata_serializer(current: Option<json_object_to_json_string_fn>) -> bool {
-    serializer_matches(current, serializer::json_object_userdata_to_json_string_impl)
-        || serializer_matches(current, serializer::json_object_userdata_to_json_string_wrapper_impl)
-        || serializer_matches(current, crate::exports::json_object_userdata_to_json_string)
+    serializer_matches(
+        current,
+        serializer::json_object_userdata_to_json_string_impl,
+    ) || serializer_matches(
+        current,
+        serializer::json_object_userdata_to_json_string_wrapper_impl,
+    ) || serializer_matches(current, crate::exports::json_object_userdata_to_json_string)
 }
 
-pub(crate) unsafe fn json_object_put_impl(obj: *mut json_object) -> c_int {
+pub(crate) fn json_object_put_impl(obj: *mut json_object) -> c_int {
     if obj.is_null() {
         return 0;
     }
@@ -195,14 +358,14 @@ pub(crate) unsafe fn json_object_put_impl(obj: *mut json_object) -> c_int {
         return 0;
     }
 
-    let boxed = Box::from_raw(obj.cast::<JsonObjectBox>());
+    let boxed = unsafe { Box::from_raw(obj.cast::<JsonObjectBox>()) };
     if let Some(delete_fn) = boxed.user_delete {
-        delete_fn(obj, boxed.userdata);
+        call_user_delete(delete_fn, obj, boxed.userdata);
     }
 
     match &boxed.data {
         JsonData::Object { table } => {
-            linkhash::lh_table_free_impl(*table);
+            linkhash_table_free(*table);
         }
         JsonData::Array { list } => {
             arraylist::array_list_free_impl(*list);
@@ -217,19 +380,19 @@ pub(crate) unsafe fn json_object_put_impl(obj: *mut json_object) -> c_int {
     1
 }
 
-pub(crate) unsafe fn json_object_is_type_impl(obj: *const json_object, o_type: json_type) -> c_int {
+pub(crate) fn json_object_is_type_impl(obj: *const json_object, o_type: json_type) -> c_int {
     if obj.is_null() {
         return (o_type == 0) as c_int;
     }
     (as_json_box(obj).expect("valid json_object").o_type == o_type) as c_int
 }
 
-pub(crate) unsafe fn json_object_get_type_impl(obj: *const json_object) -> json_type {
+pub(crate) fn json_object_get_type_impl(obj: *const json_object) -> json_type {
     as_json_box(obj).map(|inner| inner.o_type).unwrap_or(0)
 }
 
-pub(crate) unsafe fn json_object_new_object_impl() -> *mut json_object {
-    let table = linkhash::lh_kchar_table_new_impl(
+pub(crate) fn json_object_new_object_impl() -> *mut json_object {
+    let table = linkhash_kchar_table_new(
         JSON_OBJECT_DEF_HASH_ENTRIES,
         Some(json_object_lh_entry_free),
     );
@@ -241,23 +404,23 @@ pub(crate) unsafe fn json_object_new_object_impl() -> *mut json_object {
     new_json_object(4, JsonData::Object { table })
 }
 
-pub(crate) unsafe fn json_object_get_object_impl(obj: *const json_object) -> *mut lh_table {
+pub(crate) fn json_object_get_object_impl(obj: *const json_object) -> *mut lh_table {
     object_table(obj)
 }
 
-pub(crate) unsafe fn json_object_object_length_impl(obj: *const json_object) -> c_int {
+pub(crate) fn json_object_object_length_impl(obj: *const json_object) -> c_int {
     let table = object_table(obj);
     if table.is_null() {
         return 0;
     }
-    linkhash::lh_table_length_impl(table)
+    linkhash_table_length(table)
 }
 
-pub(crate) unsafe fn json_c_object_sizeof_impl() -> size_t {
+pub(crate) fn json_c_object_sizeof_impl() -> size_t {
     size_of::<JsonObjectBaseLayout>()
 }
 
-pub(crate) unsafe fn json_object_object_add_impl(
+pub(crate) fn json_object_object_add_impl(
     obj: *mut json_object,
     key: *const c_char,
     value: *mut json_object,
@@ -265,7 +428,7 @@ pub(crate) unsafe fn json_object_object_add_impl(
     json_object_object_add_ex_impl(obj, key, value, 0)
 }
 
-pub(crate) unsafe fn json_object_object_add_ex_impl(
+pub(crate) fn json_object_object_add_ex_impl(
     obj: *mut json_object,
     key: *const c_char,
     value: *mut json_object,
@@ -283,12 +446,12 @@ pub(crate) unsafe fn json_object_object_add_ex_impl(
         return -1;
     }
 
-    let hash_fn = (*table).hash_fn.expect("object table hash function");
-    let hash = hash_fn(key.cast());
+    let hash_fn = table_hash_fn(table).expect("object table hash function");
+    let hash = call_hash_fn(hash_fn, key.cast());
     let existing_entry = if (opts & JSON_C_OBJECT_ADD_KEY_IS_NEW) != 0 {
         ptr::null_mut()
     } else {
-        linkhash::lh_table_lookup_entry_w_hash_impl(table, key.cast(), hash)
+        linkhash_lookup_entry_w_hash(table, key.cast(), hash)
     };
 
     if existing_entry.is_null() {
@@ -302,24 +465,18 @@ pub(crate) unsafe fn json_object_object_add_ex_impl(
             return -1;
         }
 
-        return linkhash::lh_table_insert_w_hash_impl(
-            table,
-            inserted_key.cast(),
-            value.cast(),
-            hash,
-            opts,
-        );
+        return linkhash_insert_w_hash(table, inserted_key.cast(), value.cast(), hash, opts);
     }
 
-    let existing_value = (*existing_entry).v.cast_mut().cast::<json_object>();
+    let existing_value = entry_value(existing_entry);
     if !existing_value.is_null() {
         json_object_put_impl(existing_value);
     }
-    (*existing_entry).v = value.cast();
+    set_entry_value(existing_entry, value);
     0
 }
 
-pub(crate) unsafe fn json_object_object_get_impl(
+pub(crate) fn json_object_object_get_impl(
     obj: *const json_object,
     key: *const c_char,
 ) -> *mut json_object {
@@ -328,13 +485,13 @@ pub(crate) unsafe fn json_object_object_get_impl(
     result
 }
 
-pub(crate) unsafe fn json_object_object_get_ex_impl(
+pub(crate) fn json_object_object_get_ex_impl(
     obj: *const json_object,
     key: *const c_char,
     value_out: *mut *mut json_object,
 ) -> json_bool {
     if !value_out.is_null() {
-        *value_out = ptr::null_mut();
+        write_object_out(value_out, ptr::null_mut());
     }
     if obj.is_null() || key.is_null() {
         return 0;
@@ -345,10 +502,10 @@ pub(crate) unsafe fn json_object_object_get_ex_impl(
         return 0;
     }
 
-    linkhash::lh_table_lookup_ex_impl(table, key.cast(), value_out.cast())
+    linkhash_lookup_ex(table, key.cast(), value_out.cast())
 }
 
-pub(crate) unsafe fn json_object_object_del_impl(obj: *mut json_object, key: *const c_char) {
+pub(crate) fn json_object_object_del_impl(obj: *mut json_object, key: *const c_char) {
     if obj.is_null() || key.is_null() {
         return;
     }
@@ -357,14 +514,14 @@ pub(crate) unsafe fn json_object_object_del_impl(obj: *mut json_object, key: *co
     if table.is_null() {
         return;
     }
-    linkhash::lh_table_delete_impl(table, key.cast());
+    linkhash_delete(table, key.cast());
 }
 
-pub(crate) unsafe fn json_object_new_boolean_impl(value: json_bool) -> *mut json_object {
+pub(crate) fn json_object_new_boolean_impl(value: json_bool) -> *mut json_object {
     new_json_object(1, JsonData::Boolean(value))
 }
 
-pub(crate) unsafe fn json_object_get_boolean_impl(obj: *const json_object) -> json_bool {
+pub(crate) fn json_object_get_boolean_impl(obj: *const json_object) -> json_bool {
     let Some(inner) = as_json_box(obj) else {
         return 0;
     };
@@ -379,10 +536,7 @@ pub(crate) unsafe fn json_object_get_boolean_impl(obj: *const json_object) -> js
     }
 }
 
-pub(crate) unsafe fn json_object_set_boolean_impl(
-    obj: *mut json_object,
-    value: json_bool,
-) -> c_int {
+pub(crate) fn json_object_set_boolean_impl(obj: *mut json_object, value: json_bool) -> c_int {
     let Some(inner) = as_json_box_mut(obj) else {
         return 0;
     };
@@ -395,15 +549,15 @@ pub(crate) unsafe fn json_object_set_boolean_impl(
     }
 }
 
-pub(crate) unsafe fn json_object_new_int_impl(value: int32_t) -> *mut json_object {
+pub(crate) fn json_object_new_int_impl(value: int32_t) -> *mut json_object {
     json_object_new_int64_impl(value as int64_t)
 }
 
-pub(crate) unsafe fn json_object_new_int64_impl(value: int64_t) -> *mut json_object {
+pub(crate) fn json_object_new_int64_impl(value: int64_t) -> *mut json_object {
     new_json_object(3, JsonData::Int(JsonInt::Int64(value)))
 }
 
-pub(crate) unsafe fn json_object_new_uint64_impl(value: uint64_t) -> *mut json_object {
+pub(crate) fn json_object_new_uint64_impl(value: uint64_t) -> *mut json_object {
     new_json_object(3, JsonData::Int(JsonInt::UInt64(value)))
 }
 
@@ -417,7 +571,7 @@ fn saturating_int32(value: int64_t) -> int32_t {
     }
 }
 
-pub(crate) unsafe fn json_object_get_int_impl(obj: *const json_object) -> int32_t {
+pub(crate) fn json_object_get_int_impl(obj: *const json_object) -> int32_t {
     let Some(inner) = as_json_box(obj) else {
         return 0;
     };
@@ -446,11 +600,7 @@ pub(crate) unsafe fn json_object_get_int_impl(obj: *const json_object) -> int32_
         JsonData::Boolean(value) => *value,
         JsonData::String(_) => {
             let mut parsed = 0_i64;
-            if crate::numeric::json_parse_int64_impl(
-                json_object_get_string_impl(obj.cast_mut()),
-                &mut parsed,
-            ) != 0
-            {
+            if parse_int64_c(json_object_get_string_impl(obj.cast_mut()), &mut parsed) != 0 {
                 return 0;
             }
             saturating_int32(parsed)
@@ -459,7 +609,7 @@ pub(crate) unsafe fn json_object_get_int_impl(obj: *const json_object) -> int32_
     }
 }
 
-pub(crate) unsafe fn json_object_get_int64_impl(obj: *const json_object) -> int64_t {
+pub(crate) fn json_object_get_int64_impl(obj: *const json_object) -> int64_t {
     let Some(inner) = as_json_box(obj) else {
         return 0;
     };
@@ -487,11 +637,7 @@ pub(crate) unsafe fn json_object_get_int64_impl(obj: *const json_object) -> int6
         JsonData::Boolean(value) => (*value).into(),
         JsonData::String(_) => {
             let mut parsed = 0_i64;
-            if crate::numeric::json_parse_int64_impl(
-                json_object_get_string_impl(obj.cast_mut()),
-                &mut parsed,
-            ) != 0
-            {
+            if parse_int64_c(json_object_get_string_impl(obj.cast_mut()), &mut parsed) != 0 {
                 return 0;
             }
             parsed
@@ -500,7 +646,7 @@ pub(crate) unsafe fn json_object_get_int64_impl(obj: *const json_object) -> int6
     }
 }
 
-pub(crate) unsafe fn json_object_get_uint64_impl(obj: *const json_object) -> uint64_t {
+pub(crate) fn json_object_get_uint64_impl(obj: *const json_object) -> uint64_t {
     let Some(inner) = as_json_box(obj) else {
         return 0;
     };
@@ -526,11 +672,7 @@ pub(crate) unsafe fn json_object_get_uint64_impl(obj: *const json_object) -> uin
         JsonData::Boolean(value) => (*value != 0) as u64,
         JsonData::String(_) => {
             let mut parsed = 0_u64;
-            if crate::numeric::json_parse_uint64_impl(
-                json_object_get_string_impl(obj.cast_mut()),
-                &mut parsed,
-            ) != 0
-            {
+            if parse_uint64_c(json_object_get_string_impl(obj.cast_mut()), &mut parsed) != 0 {
                 return 0;
             }
             parsed
@@ -539,11 +681,11 @@ pub(crate) unsafe fn json_object_get_uint64_impl(obj: *const json_object) -> uin
     }
 }
 
-pub(crate) unsafe fn json_object_set_int_impl(obj: *mut json_object, value: c_int) -> c_int {
+pub(crate) fn json_object_set_int_impl(obj: *mut json_object, value: c_int) -> c_int {
     json_object_set_int64_impl(obj, value as int64_t)
 }
 
-pub(crate) unsafe fn json_object_set_int64_impl(obj: *mut json_object, value: int64_t) -> c_int {
+pub(crate) fn json_object_set_int64_impl(obj: *mut json_object, value: int64_t) -> c_int {
     let Some(inner) = as_json_box_mut(obj) else {
         return 0;
     };
@@ -556,7 +698,7 @@ pub(crate) unsafe fn json_object_set_int64_impl(obj: *mut json_object, value: in
     }
 }
 
-pub(crate) unsafe fn json_object_set_uint64_impl(obj: *mut json_object, value: uint64_t) -> c_int {
+pub(crate) fn json_object_set_uint64_impl(obj: *mut json_object, value: uint64_t) -> c_int {
     let Some(inner) = as_json_box_mut(obj) else {
         return 0;
     };
@@ -569,7 +711,7 @@ pub(crate) unsafe fn json_object_set_uint64_impl(obj: *mut json_object, value: u
     }
 }
 
-pub(crate) unsafe fn json_object_int_inc_impl(obj: *mut json_object, value: int64_t) -> c_int {
+pub(crate) fn json_object_int_inc_impl(obj: *mut json_object, value: int64_t) -> c_int {
     let Some(inner) = as_json_box_mut(obj) else {
         return 0;
     };
@@ -603,11 +745,11 @@ pub(crate) unsafe fn json_object_int_inc_impl(obj: *mut json_object, value: int6
     1
 }
 
-pub(crate) unsafe fn json_object_new_double_impl(value: c_double) -> *mut json_object {
+pub(crate) fn json_object_new_double_impl(value: c_double) -> *mut json_object {
     new_json_object(2, JsonData::Double(value))
 }
 
-pub(crate) unsafe fn json_object_new_double_s_impl(
+pub(crate) fn json_object_new_double_s_impl(
     value: c_double,
     serialized: *const c_char,
 ) -> *mut json_object {
@@ -620,7 +762,7 @@ pub(crate) unsafe fn json_object_new_double_s_impl(
         return ptr::null_mut();
     }
 
-    let duplicated = strdup(serialized);
+    let duplicated = unsafe { strdup(serialized) };
     if duplicated.is_null() {
         json_object_put_impl(obj);
         set_errno(ENOMEM);
@@ -636,7 +778,7 @@ pub(crate) unsafe fn json_object_new_double_s_impl(
     obj
 }
 
-pub(crate) unsafe fn json_object_get_double_impl(obj: *const json_object) -> c_double {
+pub(crate) fn json_object_get_double_impl(obj: *const json_object) -> c_double {
     let Some(inner) = as_json_box(obj) else {
         return 0.0;
     };
@@ -649,29 +791,29 @@ pub(crate) unsafe fn json_object_get_double_impl(obj: *const json_object) -> c_d
         JsonData::String(_) => {
             let input = json_object_get_string_impl(obj.cast_mut());
             let mut end_ptr = ptr::null_mut();
-            *errno_ptr() = 0;
-            let mut parsed = strtod(input, &mut end_ptr);
+            errno_set(0);
+            let mut parsed = call_strtod(input, &mut end_ptr);
             if end_ptr == input.cast_mut() {
-                *errno_ptr() = EINVAL;
+                errno_set(EINVAL);
                 return 0.0;
             }
-            if *end_ptr != 0 {
-                *errno_ptr() = EINVAL;
+            if c_char_value(end_ptr) != 0 {
+                errno_set(EINVAL);
                 return 0.0;
             }
-            if parsed.is_infinite() && *errno_ptr() == 34 {
+            if parsed.is_infinite() && errno_get() == 34 {
                 parsed = 0.0;
             }
             parsed
         }
         JsonData::Object { .. } | JsonData::Array { .. } => {
-            *errno_ptr() = EINVAL;
+            errno_set(EINVAL);
             0.0
         }
     }
 }
 
-pub(crate) unsafe fn json_object_set_double_impl(obj: *mut json_object, value: c_double) -> c_int {
+pub(crate) fn json_object_set_double_impl(obj: *mut json_object, value: c_double) -> c_int {
     let Some(inner) = as_json_box_mut(obj) else {
         return 0;
     };
@@ -689,21 +831,21 @@ pub(crate) unsafe fn json_object_set_double_impl(obj: *mut json_object, value: c
     1
 }
 
-unsafe fn with_nul(bytes: &[u8]) -> Vec<u8> {
+fn with_nul(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len() + 1);
     out.extend_from_slice(bytes);
     out.push(0);
     out
 }
 
-pub(crate) unsafe fn json_object_new_string_impl(value: *const c_char) -> *mut json_object {
+pub(crate) fn json_object_new_string_impl(value: *const c_char) -> *mut json_object {
     if value.is_null() {
         return new_json_object(6, JsonData::String(vec![0]));
     }
-    json_object_new_string_len_impl(value, CStr::from_ptr(value).to_bytes().len() as c_int)
+    json_object_new_string_len_impl(value, c_string_bytes(value).len() as c_int)
 }
 
-pub(crate) unsafe fn json_object_new_string_len_impl(
+pub(crate) fn json_object_new_string_len_impl(
     value: *const c_char,
     len: c_int,
 ) -> *mut json_object {
@@ -711,15 +853,10 @@ pub(crate) unsafe fn json_object_new_string_len_impl(
         return ptr::null_mut();
     }
 
-    let bytes = if len == 0 {
-        &[]
-    } else {
-        std::slice::from_raw_parts(value.cast::<u8>(), len as usize)
-    };
-    new_json_object(6, JsonData::String(with_nul(bytes)))
+    new_json_object(6, JsonData::String(with_nul(raw_string_bytes(value, len))))
 }
 
-pub(crate) unsafe fn json_object_get_string_impl(obj: *mut json_object) -> *const c_char {
+pub(crate) fn json_object_get_string_impl(obj: *mut json_object) -> *const c_char {
     if obj.is_null() {
         return ptr::null();
     }
@@ -731,23 +868,20 @@ pub(crate) unsafe fn json_object_get_string_impl(obj: *mut json_object) -> *cons
     }
 }
 
-pub(crate) unsafe fn json_object_get_string_len_impl(obj: *const json_object) -> c_int {
+pub(crate) fn json_object_get_string_len_impl(obj: *const json_object) -> c_int {
     string_bytes(obj)
         .map(|bytes| bytes.len() as c_int)
         .unwrap_or(0)
 }
 
-pub(crate) unsafe fn json_object_set_string_impl(
-    obj: *mut json_object,
-    value: *const c_char,
-) -> c_int {
+pub(crate) fn json_object_set_string_impl(obj: *mut json_object, value: *const c_char) -> c_int {
     if value.is_null() {
         return json_object_set_string_len_impl(obj, ptr::null(), 0);
     }
-    json_object_set_string_len_impl(obj, value, CStr::from_ptr(value).to_bytes().len() as c_int)
+    json_object_set_string_len_impl(obj, value, c_string_bytes(value).len() as c_int)
 }
 
-pub(crate) unsafe fn json_object_set_string_len_impl(
+pub(crate) fn json_object_set_string_len_impl(
     obj: *mut json_object,
     value: *const c_char,
     len: c_int,
@@ -761,23 +895,18 @@ pub(crate) unsafe fn json_object_set_string_len_impl(
     };
     match &mut inner.data {
         JsonData::String(bytes) => {
-            let slice = if len == 0 {
-                &[]
-            } else {
-                std::slice::from_raw_parts(value.cast::<u8>(), len as usize)
-            };
-            *bytes = with_nul(slice);
+            *bytes = with_nul(raw_string_bytes(value, len));
             1
         }
         _ => 0,
     }
 }
 
-pub(crate) unsafe fn json_object_new_array_impl() -> *mut json_object {
+pub(crate) fn json_object_new_array_impl() -> *mut json_object {
     json_object_new_array_ext_impl(ARRAY_LIST_DEFAULT_SIZE)
 }
 
-pub(crate) unsafe fn json_object_new_array_ext_impl(initial_size: c_int) -> *mut json_object {
+pub(crate) fn json_object_new_array_ext_impl(initial_size: c_int) -> *mut json_object {
     if initial_size < 0 {
         return ptr::null_mut();
     }
@@ -791,11 +920,11 @@ pub(crate) unsafe fn json_object_new_array_ext_impl(initial_size: c_int) -> *mut
     new_json_object(5, JsonData::Array { list })
 }
 
-pub(crate) unsafe fn json_object_get_array_impl(obj: *const json_object) -> *mut array_list {
+pub(crate) fn json_object_get_array_impl(obj: *const json_object) -> *mut array_list {
     array_list_ptr(obj)
 }
 
-pub(crate) unsafe fn json_object_array_length_impl(obj: *const json_object) -> size_t {
+pub(crate) fn json_object_array_length_impl(obj: *const json_object) -> size_t {
     let list = array_list_ptr(obj);
     if list.is_null() {
         return 0;
@@ -803,10 +932,7 @@ pub(crate) unsafe fn json_object_array_length_impl(obj: *const json_object) -> s
     arraylist::array_list_length_impl(list)
 }
 
-pub(crate) unsafe fn json_object_array_add_impl(
-    obj: *mut json_object,
-    value: *mut json_object,
-) -> c_int {
+pub(crate) fn json_object_array_add_impl(obj: *mut json_object, value: *mut json_object) -> c_int {
     let list = array_list_ptr(obj);
     if list.is_null() {
         return -1;
@@ -814,7 +940,7 @@ pub(crate) unsafe fn json_object_array_add_impl(
     arraylist::array_list_add_impl(list, value.cast())
 }
 
-pub(crate) unsafe fn json_object_array_insert_idx_impl(
+pub(crate) fn json_object_array_insert_idx_impl(
     obj: *mut json_object,
     idx: size_t,
     value: *mut json_object,
@@ -826,7 +952,7 @@ pub(crate) unsafe fn json_object_array_insert_idx_impl(
     arraylist::array_list_insert_idx_impl(list, idx, value.cast())
 }
 
-pub(crate) unsafe fn json_object_array_put_idx_impl(
+pub(crate) fn json_object_array_put_idx_impl(
     obj: *mut json_object,
     idx: size_t,
     value: *mut json_object,
@@ -838,7 +964,7 @@ pub(crate) unsafe fn json_object_array_put_idx_impl(
     arraylist::array_list_put_idx_impl(list, idx, value.cast())
 }
 
-pub(crate) unsafe fn json_object_array_del_idx_impl(
+pub(crate) fn json_object_array_del_idx_impl(
     obj: *mut json_object,
     idx: size_t,
     count: size_t,
@@ -850,7 +976,7 @@ pub(crate) unsafe fn json_object_array_del_idx_impl(
     arraylist::array_list_del_idx_impl(list, idx, count)
 }
 
-pub(crate) unsafe fn json_object_array_get_idx_impl(
+pub(crate) fn json_object_array_get_idx_impl(
     obj: *const json_object,
     idx: size_t,
 ) -> *mut json_object {
@@ -861,10 +987,7 @@ pub(crate) unsafe fn json_object_array_get_idx_impl(
     arraylist::array_list_get_idx_impl(list, idx).cast()
 }
 
-pub(crate) unsafe fn json_object_array_shrink_impl(
-    obj: *mut json_object,
-    empty_slots: c_int,
-) -> c_int {
+pub(crate) fn json_object_array_shrink_impl(obj: *mut json_object, empty_slots: c_int) -> c_int {
     if empty_slots < 0 {
         return -1;
     }
@@ -875,10 +998,7 @@ pub(crate) unsafe fn json_object_array_shrink_impl(
     arraylist::array_list_shrink_impl(list, empty_slots as size_t)
 }
 
-pub(crate) unsafe fn json_object_array_sort_impl(
-    obj: *mut json_object,
-    sort_fn: Option<comparison_fn>,
-) {
+pub(crate) fn json_object_array_sort_impl(obj: *mut json_object, sort_fn: Option<comparison_fn>) {
     let list = array_list_ptr(obj);
     if list.is_null() {
         return;
@@ -886,7 +1006,7 @@ pub(crate) unsafe fn json_object_array_sort_impl(
     arraylist::array_list_sort_impl(list, sort_fn);
 }
 
-pub(crate) unsafe fn json_object_array_bsearch_impl(
+pub(crate) fn json_object_array_bsearch_impl(
     key: *const json_object,
     obj: *const json_object,
     sort_fn: Option<comparison_fn>,
@@ -901,19 +1021,19 @@ pub(crate) unsafe fn json_object_array_bsearch_impl(
     if result.is_null() {
         ptr::null_mut()
     } else {
-        *(result.cast::<*mut json_object>())
+        bsearch_result_object(result)
     }
 }
 
-pub(crate) unsafe fn json_object_new_null_impl() -> *mut json_object {
+pub(crate) fn json_object_new_null_impl() -> *mut json_object {
     ptr::null_mut()
 }
 
-unsafe fn strings_equal(left: &[u8], right: &[u8]) -> bool {
+fn strings_equal(left: &[u8], right: &[u8]) -> bool {
     left == right
 }
 
-unsafe fn int_equal(left: JsonInt, right: JsonInt) -> bool {
+fn int_equal(left: JsonInt, right: JsonInt) -> bool {
     match (left, right) {
         (JsonInt::Int64(a), JsonInt::Int64(b)) => a == b,
         (JsonInt::UInt64(a), JsonInt::UInt64(b)) => a == b,
@@ -927,38 +1047,38 @@ unsafe fn int_equal(left: JsonInt, right: JsonInt) -> bool {
     }
 }
 
-unsafe fn objects_equal(left: *mut lh_table, right: *mut lh_table) -> bool {
-    if linkhash::lh_table_length_impl(left) != linkhash::lh_table_length_impl(right) {
+fn objects_equal(left: *mut lh_table, right: *mut lh_table) -> bool {
+    if linkhash_table_length(left) != linkhash_table_length(right) {
         return false;
     }
 
-    let mut entry = (*left).head;
+    let mut entry = table_head(left);
     while !entry.is_null() {
-        let key = (*entry).k;
+        let key = entry_key(entry);
         let mut other = ptr::null_mut();
-        if linkhash::lh_table_lookup_ex_impl(right, key, &mut other) == 0 {
+        if linkhash_lookup_ex(right, key, &mut other) == 0 {
             return false;
         }
-        if json_object_equal_impl((*entry).v.cast_mut().cast(), other.cast()) == 0 {
+        if json_object_equal_impl(entry_value(entry), other.cast()) == 0 {
             return false;
         }
-        entry = (*entry).next;
+        entry = entry_next(entry);
     }
 
-    let mut entry = (*right).head;
+    let mut entry = table_head(right);
     while !entry.is_null() {
-        let key = (*entry).k;
+        let key = entry_key(entry);
         let mut other = ptr::null_mut();
-        if linkhash::lh_table_lookup_ex_impl(left, key, &mut other) == 0 {
+        if linkhash_lookup_ex(left, key, &mut other) == 0 {
             return false;
         }
-        entry = (*entry).next;
+        entry = entry_next(entry);
     }
 
     true
 }
 
-unsafe fn arrays_equal(left: *mut array_list, right: *mut array_list) -> bool {
+fn arrays_equal(left: *mut array_list, right: *mut array_list) -> bool {
     let len = arraylist::array_list_length_impl(left);
     if len != arraylist::array_list_length_impl(right) {
         return false;
@@ -976,10 +1096,7 @@ unsafe fn arrays_equal(left: *mut array_list, right: *mut array_list) -> bool {
     true
 }
 
-pub(crate) unsafe fn json_object_equal_impl(
-    left: *mut json_object,
-    right: *mut json_object,
-) -> c_int {
+pub(crate) fn json_object_equal_impl(left: *mut json_object, right: *mut json_object) -> c_int {
     if left == right {
         return 1;
     }
@@ -1009,7 +1126,7 @@ pub(crate) unsafe fn json_object_equal_impl(
     equal as c_int
 }
 
-unsafe fn copy_serializer_data(src: *mut json_object, dst: *mut json_object) -> c_int {
+fn copy_serializer_data(src: *mut json_object, dst: *mut json_object) -> c_int {
     let src_inner = as_json_box(src).expect("valid source object");
     let dst_inner = as_json_box_mut(dst).expect("valid destination object");
 
@@ -1019,10 +1136,10 @@ unsafe fn copy_serializer_data(src: *mut json_object, dst: *mut json_object) -> 
 
     if is_userdata_serializer(dst_inner.to_json_string) {
         if src_inner.userdata.is_null() {
-            abort();
+            call_abort();
         }
 
-        let duplicated = strdup(src_inner.userdata.cast());
+        let duplicated = unsafe { strdup(src_inner.userdata.cast()) };
         if duplicated.is_null() {
             errors::set_last_err_fmt(format_args!(
                 "json_object_copy_serializer_data: out of memory\n"
@@ -1084,7 +1201,7 @@ pub(crate) unsafe extern "C" fn json_c_shallow_copy_default_impl(
     1
 }
 
-unsafe fn json_object_deep_copy_recursive(
+fn json_object_deep_copy_recursive(
     src: *mut json_object,
     parent: *mut json_object,
     key_in_parent: *const c_char,
@@ -1092,7 +1209,14 @@ unsafe fn json_object_deep_copy_recursive(
     dst: *mut *mut json_object,
     shallow_copy: json_c_shallow_copy_fn,
 ) -> c_int {
-    let shallow_rc = shallow_copy(src, parent, key_in_parent, index_in_parent, dst);
+    let shallow_rc = shallow_copy_call(
+        shallow_copy,
+        src,
+        parent,
+        key_in_parent,
+        index_in_parent,
+        dst,
+    );
     if shallow_rc < 1 {
         set_errno(EINVAL);
         return -1;
@@ -1105,16 +1229,16 @@ unsafe fn json_object_deep_copy_recursive(
 
     match &src_inner.data {
         JsonData::Object { table } => {
-            let mut entry = (**table).head;
+            let mut entry = table_head(*table);
             while !entry.is_null() {
-                let child = (*entry).v.cast_mut().cast::<json_object>();
+                let child = entry_value(entry);
                 let mut copied = ptr::null_mut();
                 if child.is_null() {
                     copied = ptr::null_mut();
                 } else if json_object_deep_copy_recursive(
                     child,
                     src,
-                    (*entry).k.cast(),
+                    entry_key(entry).cast(),
                     usize::MAX,
                     &mut copied,
                     shallow_copy,
@@ -1124,12 +1248,17 @@ unsafe fn json_object_deep_copy_recursive(
                     return -1;
                 }
 
-                if json_object_object_add_impl(*dst, (*entry).k.cast(), copied) < 0 {
+                if json_object_object_add_impl(
+                    read_object_out(dst),
+                    entry_key(entry).cast(),
+                    copied,
+                ) < 0
+                {
                     json_object_put_impl(copied);
                     return -1;
                 }
 
-                entry = (*entry).next;
+                entry = entry_next(entry);
             }
         }
         JsonData::Array { list } => {
@@ -1152,7 +1281,7 @@ unsafe fn json_object_deep_copy_recursive(
                     return -1;
                 }
 
-                if json_object_array_add_impl(*dst, copied) < 0 {
+                if json_object_array_add_impl(read_object_out(dst), copied) < 0 {
                     json_object_put_impl(copied);
                     return -1;
                 }
@@ -1162,17 +1291,17 @@ unsafe fn json_object_deep_copy_recursive(
     }
 
     if shallow_rc != 2 {
-        return copy_serializer_data(src, *dst);
+        return copy_serializer_data(src, read_object_out(dst));
     }
     0
 }
 
-pub(crate) unsafe fn json_object_deep_copy_impl(
+pub(crate) fn json_object_deep_copy_impl(
     src: *mut json_object,
     dst: *mut *mut json_object,
     shallow_copy: Option<json_c_shallow_copy_fn>,
 ) -> c_int {
-    if src.is_null() || dst.is_null() || !(*dst).is_null() {
+    if src.is_null() || dst.is_null() || !object_out_is_null(dst) {
         set_errno(EINVAL);
         return -1;
     }
@@ -1187,8 +1316,8 @@ pub(crate) unsafe fn json_object_deep_copy_impl(
         shallow,
     );
     if rc < 0 {
-        json_object_put_impl(*dst);
-        *dst = ptr::null_mut();
+        json_object_put_impl(read_object_out(dst));
+        write_object_out(dst, ptr::null_mut());
     }
     rc
 }

@@ -612,12 +612,21 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
         NAME verify_07_safety_review
         COMMAND ${CMAKE_COMMAND} -E env
                 SAFE_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+                PROJECT_BINARY_DIR=${PROJECT_BINARY_DIR}
                 bash -lc
                 "set -euo pipefail; \
+                 \"$SAFE_SOURCE_DIR/tools/check-unsafe.sh\"; \
                  cargo clippy --manifest-path \"$SAFE_SOURCE_DIR/Cargo.toml\" --all-targets -- -D warnings; \
                  [[ ! -e \"$SAFE_SOURCE_DIR/src/stubs.rs\" ]]; \
                  [[ ! -e \"$SAFE_SOURCE_DIR/src/mini_json.rs\" ]]; \
-                 ! rg -n 'impl_01_scaffold_surface' \"$SAFE_SOURCE_DIR/src\""
+                 ! rg -n 'impl_01_scaffold_surface' \"$SAFE_SOURCE_DIR/src\"; \
+                 \"$SAFE_SOURCE_DIR/tools/check-layout.sh\" \"$PROJECT_BINARY_DIR\"; \
+                 \"$SAFE_SOURCE_DIR/tools/relink-original-tests.sh\" --build \"$PROJECT_BINARY_DIR\" --tests test_parse,test_public_api; \
+                 \"$PROJECT_BINARY_DIR/relinked-tests/test_parse\" >\"$PROJECT_BINARY_DIR/relinked-tests/test_parse.out\"; \
+                 diff -u \"$SAFE_SOURCE_DIR/tests/upstream/test_parse.expected\" \"$PROJECT_BINARY_DIR/relinked-tests/test_parse.out\"; \
+                 \"$PROJECT_BINARY_DIR/relinked-tests/test_public_api\" >\"$PROJECT_BINARY_DIR/relinked-tests/test_public_api.out\"; \
+                 diff -u \"$SAFE_SOURCE_DIR/tests/upstream/test_public_api.expected\" \"$PROJECT_BINARY_DIR/relinked-tests/test_public_api.out\"; \
+                 ctest --test-dir \"$PROJECT_BINARY_DIR\" --output-on-failure -R '^hash_collision$'"
     )
     set_tests_properties(
         verify_07_safety_review

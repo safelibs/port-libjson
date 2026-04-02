@@ -20,31 +20,24 @@ const O_WRONLY: c_int = 1;
 const O_CREAT: c_int = 0o100;
 const O_TRUNC: c_int = 0o1000;
 
-unsafe fn errno_value() -> c_int
-{
+unsafe fn errno_value() -> c_int {
     *__errno_location()
 }
 
-unsafe fn set_errno(value: c_int)
-{
+unsafe fn set_errno(value: c_int) {
     *__errno_location() = value;
 }
 
-unsafe fn errno_text(errno_in: c_int) -> String
-{
+unsafe fn errno_text(errno_in: c_int) -> String {
     let ptr = strerror::_json_c_strerror_impl(errno_in);
-    if ptr.is_null()
-    {
+    if ptr.is_null() {
         String::new()
-    }
-    else
-    {
+    } else {
         CStr::from_ptr(ptr).to_string_lossy().into_owned()
     }
 }
 
-unsafe fn printbuf_length(pb: *mut printbuf) -> c_int
-{
+unsafe fn printbuf_length(pb: *mut printbuf) -> c_int {
     (*pb).bpos
 }
 
@@ -91,10 +84,7 @@ pub(crate) unsafe fn json_object_from_fd_impl(fd: c_int) -> *mut json_object {
     json_object_from_fd_ex_impl(fd, -1)
 }
 
-pub(crate) unsafe fn json_object_from_fd_ex_impl(
-    fd: c_int,
-    in_depth: c_int,
-) -> *mut json_object {
+pub(crate) unsafe fn json_object_from_fd_ex_impl(fd: c_int, in_depth: c_int) -> *mut json_object {
     let pb = printbuf_impl::printbuf_new_impl();
     if pb.is_null() {
         errors::set_last_err_fmt(format_args!(
