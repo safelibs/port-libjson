@@ -5,6 +5,15 @@ src_dir=${1:?usage: collect-native-static-libs.sh <src-dir> <build-dir> <target-
 build_dir=${2:?usage: collect-native-static-libs.sh <src-dir> <build-dir> <target-dir> <profile>}
 target_dir=${3:?usage: collect-native-static-libs.sh <src-dir> <build-dir> <target-dir> <profile>}
 profile=${4:?usage: collect-native-static-libs.sh <src-dir> <build-dir> <target-dir> <profile>}
+cargo_lock_backup=""
+
+cleanup() {
+    if [[ -n "${cargo_lock_backup}" && -f "${cargo_lock_backup}" ]]; then
+        mv -f "${cargo_lock_backup}" "${src_dir}/Cargo.lock"
+    fi
+}
+
+trap cleanup EXIT
 
 mkdir -p "${build_dir}" "${target_dir}"
 
@@ -22,8 +31,25 @@ case "${profile}" in
 esac
 cargo_cmd+=(-- -C relocation-model=pic --print native-static-libs)
 
+# This crate has no external dependencies. A stray ignored Cargo.lock produced
+# by a newer toolchain can still break older cargo versions, so build without it.
+if [[ -f "${src_dir}/Cargo.lock" ]]; then
+    cargo_lock_backup="${src_dir}/Cargo.lock.collect-native-static-libs-backup.$$"
+    while [[ -e "${cargo_lock_backup}" ]]; do
+        cargo_lock_backup="${cargo_lock_backup}x"
+    done
+    mv "${src_dir}/Cargo.lock" "${cargo_lock_backup}"
+fi
+
+set +e
 output="$("${cargo_cmd[@]}" 2>&1)"
+cargo_status=$?
+set -e
 printf '%s\n' "${output}" >"${build_dir}/rust-native-static-libs.txt"
+if [[ ${cargo_status} -ne 0 ]]; then
+    printf '%s\n' "${output}" >&2
+    exit "${cargo_status}"
+fi
 
 native_flags="$(printf '%s\n' "${output}" | sed -n 's/^note: native-static-libs: //p' | tail -n 1)"
 
