@@ -5,7 +5,7 @@
 use crate::abi::*;
 use crate::{
     arraylist, debug, errors, iterators, linkhash, numeric, object, printbuf as printbuf_impl,
-    random_seed, serializer, strerror, tokener, version, visit,
+    patch, pointer, random_seed, serializer, strerror, tokener, util, version, visit,
 };
 
 #[no_mangle]
@@ -234,18 +234,18 @@ pub unsafe extern "C" fn json_object_free_userdata(arg0: *mut json_object, arg1:
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_from_fd(_arg0: c_int) -> *mut json_object {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn json_object_from_fd(arg0: c_int) -> *mut json_object {
+    util::json_object_from_fd_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_from_fd_ex(_arg0: c_int, _arg1: c_int) -> *mut json_object {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn json_object_from_fd_ex(arg0: c_int, arg1: c_int) -> *mut json_object {
+    util::json_object_from_fd_ex_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_object_from_file(_arg0: *const c_char) -> *mut json_object {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn json_object_from_file(arg0: *const c_char) -> *mut json_object {
+    util::json_object_from_file_impl(arg0)
 }
 
 #[no_mangle]
@@ -540,28 +540,28 @@ pub unsafe extern "C" fn json_object_set_userdata(
 
 #[no_mangle]
 pub unsafe extern "C" fn json_object_to_fd(
-    _arg0: c_int,
-    _arg1: *mut json_object,
-    _arg2: c_int,
+    arg0: c_int,
+    arg1: *mut json_object,
+    arg2: c_int,
 ) -> c_int {
-    0
+    util::json_object_to_fd_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_object_to_file(
-    _arg0: *const c_char,
-    _arg1: *mut json_object,
+    arg0: *const c_char,
+    arg1: *mut json_object,
 ) -> c_int {
-    0
+    util::json_object_to_file_impl(arg0, arg1)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_object_to_file_ext(
-    _arg0: *const c_char,
-    _arg1: *mut json_object,
-    _arg2: c_int,
+    arg0: *const c_char,
+    arg1: *mut json_object,
+    arg2: c_int,
 ) -> c_int {
-    0
+    util::json_object_to_file_ext_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
@@ -613,30 +613,30 @@ pub unsafe extern "C" fn json_parse_uint64(arg0: *const c_char, arg1: *mut uint6
 
 #[no_mangle]
 pub unsafe extern "C" fn json_patch_apply(
-    _arg0: *mut json_object,
-    _arg1: *mut json_object,
-    _arg2: *mut *mut json_object,
-    _arg3: *mut json_patch_error,
+    arg0: *mut json_object,
+    arg1: *mut json_object,
+    arg2: *mut *mut json_object,
+    arg3: *mut json_patch_error,
 ) -> c_int {
-    0
+    patch::json_patch_apply_impl(arg0, arg1, arg2, arg3)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_pointer_get(
-    _arg0: *mut json_object,
-    _arg1: *const c_char,
-    _arg2: *mut *mut json_object,
+    arg0: *mut json_object,
+    arg1: *const c_char,
+    arg2: *mut *mut json_object,
 ) -> c_int {
-    0
+    pointer::json_pointer_get_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_pointer_set(
-    _arg0: *mut *mut json_object,
-    _arg1: *const c_char,
-    _arg2: *mut json_object,
+    arg0: *mut *mut json_object,
+    arg1: *const c_char,
+    arg2: *mut json_object,
 ) -> c_int {
-    0
+    pointer::json_pointer_set_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
@@ -886,24 +886,3 @@ pub unsafe extern "C" fn json_c_object_sizeof() -> size_t {
 pub unsafe extern "C" fn _json_c_strerror(arg0: c_int) -> *mut c_char {
     strerror::_json_c_strerror_impl(arg0)
 }
-
-#[cfg(target_arch = "x86_64")]
-core::arch::global_asm!(
-    r#"
-.globl json_pointer_getf
-.type json_pointer_getf, @function
-json_pointer_getf:
-    xor eax, eax
-    ret
-
-.globl json_pointer_setf
-.type json_pointer_setf, @function
-json_pointer_setf:
-    xor eax, eax
-    ret
-
-"#
-);
-
-#[cfg(not(target_arch = "x86_64"))]
-compile_error!("Phase 1 variadic stubs are only implemented for x86_64 targets.");

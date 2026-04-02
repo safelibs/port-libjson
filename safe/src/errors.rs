@@ -37,6 +37,17 @@ pub(crate) fn set_last_err_bytes(bytes: &[u8])
     copy_into_last_err(bytes);
 }
 
+pub(crate) unsafe fn set_last_err_cstr(text: *const c_char)
+{
+    if text.is_null()
+    {
+        clear_last_err();
+        return;
+    }
+
+    set_last_err_bytes(CStr::from_ptr(text).to_bytes());
+}
+
 pub(crate) fn set_last_err_fmt(args: fmt::Arguments<'_>)
 {
     let rendered = fmt::format(args);
@@ -59,11 +70,5 @@ pub(crate) fn json_util_get_last_err_impl() -> *const c_char
 #[no_mangle]
 pub unsafe extern "C" fn __json_c_set_last_err_text(text: *const c_char)
 {
-    if text.is_null()
-    {
-        clear_last_err();
-        return;
-    }
-
-    set_last_err_bytes(CStr::from_ptr(text).to_bytes());
+    set_last_err_cstr(text);
 }

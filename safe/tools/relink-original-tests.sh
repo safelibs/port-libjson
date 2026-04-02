@@ -7,12 +7,13 @@ build_dir="${repo_root}/safe/build"
 safe_lib=""
 out_dir=""
 tests_csv=""
+relink_all=0
 positional=()
 
 usage() {
     cat <<'EOF'
 usage: relink-original-tests.sh [safe-lib [out-dir]]
-       relink-original-tests.sh [--build <build-dir>] [--safe-lib <libjson-c.so.5.3.0>] [--out <out-dir>] [--tests <comma-separated-tests>]
+       relink-original-tests.sh [--build <build-dir>] [--safe-lib <libjson-c.so.5.3.0>] [--out <out-dir>] [--all] [--tests <comma-separated-tests>]
 EOF
 }
 
@@ -33,6 +34,10 @@ while (($#)); do
         --tests)
             tests_csv=$2
             shift 2
+            ;;
+        --all)
+            relink_all=1
+            shift
             ;;
         --help|-h)
             usage
@@ -80,8 +85,9 @@ fi
 mkdir -p "${out_dir}"
 safe_lib_dir="$(cd "$(dirname "${safe_lib}")" && pwd)"
 
-python3 - "${original_tests_dir}" "${safe_lib}" "${safe_lib_dir}" "${out_dir}" "${tests_csv}" <<'PY'
+python3 - "${original_tests_dir}" "${safe_lib}" "${safe_lib_dir}" "${out_dir}" "${tests_csv}" "${relink_all}" <<'PY'
 import pathlib
+import shlex
 import subprocess
 import sys
 
@@ -89,15 +95,41 @@ tests_dir = pathlib.Path(sys.argv[1])
 safe_lib = pathlib.Path(sys.argv[2])
 safe_lib_dir = pathlib.Path(sys.argv[3])
 out_dir = pathlib.Path(sys.argv[4])
-selected = {name for name in sys.argv[5].split(",") if name}
+requested = {name for name in sys.argv[5].split(",") if name}
+relink_all = sys.argv[6] == "1"
+
+companions = {
+    "test1": {"test1", "test1Formatted"},
+    "test2": {"test2", "test2Formatted"},
+}
+
+selected = set()
+for name in requested:
+    selected.update(companions.get(name, {name}))
+
+if not relink_all and not selected:
+    relink_all = True
 
 for link_txt in sorted(tests_dir.glob("CMakeFiles/*.dir/link.txt")):
     test_name = link_txt.parent.name[:-4]
-    if selected and test_name not in selected:
+    if not relink_all and test_name not in selected:
         continue
-    command = link_txt.read_text().strip()
-    command = command.replace("../libjson-c.so.5.3.0", str(safe_lib))
-    command = command.replace("-Wl,-rpath," + str(tests_dir.parent), "-Wl,-rpath," + str(safe_lib_dir))
-    command = command.replace(f"-o {test_name} ", f"-o {out_dir / test_name} ")
-    subprocess.run(command, shell=True, check=True, cwd=tests_dir)
+    command = shlex.split(link_txt.read_text().strip())
+
+    rewritten = []
+    idx = 0
+    while idx < len(command):
+        arg = command[idx]
+        if arg == "../libjson-c.so.5.3.0":
+            rewritten.append(str(safe_lib))
+        elif arg.startswith("-Wl,-rpath,"):
+            rewritten.append("-Wl,-rpath," + str(safe_lib_dir))
+        elif arg == "-o" and idx + 1 < len(command):
+            rewritten.extend(["-o", str(out_dir / test_name)])
+            idx += 1
+        else:
+            rewritten.append(arg)
+        idx += 1
+
+    subprocess.run(rewritten, check=True, cwd=tests_dir)
 PY
