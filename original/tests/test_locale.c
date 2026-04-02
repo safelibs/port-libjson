@@ -10,7 +10,6 @@
 #include "config.h"
 #include "json.h"
 #include "json_tokener.h"
-#include "snprintf_compat.h"
 
 #ifdef HAVE_LOCALE_H
 #include <locale.h>

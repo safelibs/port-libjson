@@ -1,20 +1,42 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include "strerror_override.h"
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "config.h"
 #include "json.h"
-#include "snprintf_compat.h"
 
 #ifndef PATH_MAX
 #define PATH_MAX 256
 #endif
+
+static const char *errno_name(int errnum)
+{
+	switch (errnum)
+	{
+	case EINVAL: return "EINVAL";
+	case ENOENT: return "ENOENT";
+	case EBADF: return "EBADF";
+	case ENOMEM: return "ENOMEM";
+	default: break;
+	}
+
+	static char buf[32];
+	(void)snprintf(buf, sizeof(buf), "%d", errnum);
+	return buf;
+}
+
+static const char *format_errno(int errnum)
+{
+	static char buf[40];
+	(void)snprintf(buf, sizeof(buf), "ERRNO=%s", errno_name(errnum));
+	return buf;
+}
 
 void test_json_patch_op(struct json_object *jo)
 {
@@ -43,7 +65,7 @@ void test_json_patch_op(struct json_object *jo)
 		assert(jperr.errno_code != 0);
 		printf("OK\n");
 		printf(" => json_patch_apply failed as expected: %s at patch idx %zu: %s\n",
-			strerror(jperr.errno_code), jperr.patch_failure_idx, jperr.errmsg);
+			format_errno(jperr.errno_code), jperr.patch_failure_idx, jperr.errmsg);
 		json_object_put(res);
 	} else {
 		ret = json_patch_apply(doc, patch, &res, &jperr);
@@ -52,7 +74,7 @@ void test_json_patch_op(struct json_object *jo)
 			fprintf(stderr, "Expected: %s\n", json_object_get_string(expected));
 			fprintf(stderr, "Got: %s\n", res ? json_object_get_string(res) : "(null)");
 			fprintf(stderr, "json_patch_apply failed: %s at patch idx %zu: %s\n",
-				strerror(jperr.errno_code), jperr.patch_failure_idx, jperr.errmsg);
+				format_errno(jperr.errno_code), jperr.patch_failure_idx, jperr.errmsg);
 			fflush(stderr);
 			assert(0);
 		}

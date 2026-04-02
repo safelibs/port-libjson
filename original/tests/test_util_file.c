@@ -1,12 +1,13 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include "strerror_override.h"
+#include "config.h"
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <io.h>
 #include <windows.h>
 #endif /* defined(WIN32) */
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stddef.h>
@@ -22,7 +23,6 @@
 
 #include "json.h"
 #include "json_util.h"
-#include "snprintf_compat.h"
 
 static void test_read_valid_with_fd(const char *testdir);
 static void test_read_valid_nested_with_fd(const char *testdir);
