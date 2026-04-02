@@ -305,16 +305,65 @@ resolve_prepared_original_path() {
   printf '%s\n' "$path"
 }
 
-assert_cxl_json_list() {
-  local label="$1"
-  local list_args="$2"
-  local raw_file="$3"
-  local stderr_file="$4"
+# ndctl and daxctl only emit JSON after they enumerate at least one object, so
+# run them in a private chroot with a minimal synthetic sysfs topology.
+copy_isolated_runtime_path() {
+  local root="$1"
+  local path="$2"
 
-  # Ubuntu 24.04's ndctl/daxctl list subcommands return 0-byte stdout on an
-  # empty topology. The companion cxl list query from the same ndctl source
-  # package emits a real JSON array, including [] on empty systems.
-  if ! cxl list ${list_args} >"$raw_file" 2>"$stderr_file"; then
+  [[ -e "$path" ]] || die "missing runtime dependency for isolated execution: ${path}"
+  mkdir -p "$root$(dirname "$path")"
+
+  cp -L "$path" "$root$path"
+}
+
+populate_isolated_runtime_root() {
+  local root="$1"
+  shift
+
+  local binary
+  local interpreter
+  local library
+  local json_c_soname
+
+  for binary in "$@"; do
+    [[ -x "$binary" ]] || die "missing isolated runtime binary: ${binary}"
+    copy_isolated_runtime_path "$root" "$binary"
+    interpreter="$(readelf -l "$binary" | awk '/Requesting program interpreter/ {gsub(/[][]/, "", $NF); print $NF; exit}')"
+    [[ -n "$interpreter" ]] || die "could not determine ELF interpreter for ${binary}"
+    copy_isolated_runtime_path "$root" "$interpreter"
+
+    while read -r library; do
+      [[ -n "$library" ]] || continue
+      copy_isolated_runtime_path "$root" "$library"
+    done < <(ldd "$binary" | tr -s '[:space:]' '\n' | grep '^/' | sort -u)
+  done
+
+  copy_isolated_runtime_path "$root" "$JSON_C_RUNTIME_LIB"
+  json_c_soname="$(dirname "$JSON_C_RUNTIME_LIB")/libjson-c.so.5"
+  if [[ "$(basename "$JSON_C_RUNTIME_LIB")" != "libjson-c.so.5" && ! -e "$root$json_c_soname" ]]; then
+    ln -s "$(basename "$JSON_C_RUNTIME_LIB")" "$root$json_c_soname"
+  fi
+}
+
+run_isolated_json_list() {
+  local label="$1"
+  local root="$2"
+  local binary="$3"
+  local raw_file="$4"
+  local stderr_file="$5"
+  shift 5
+
+  local loader
+
+  loader="$(readelf -l "$binary" | awk '/Requesting program interpreter/ {gsub(/[][]/, "", $NF); print $NF; exit}')"
+  [[ -n "$loader" ]] || die "could not determine isolated runtime loader for ${binary}"
+
+  [[ -x "$root$loader" ]] || die "missing isolated runtime loader: ${loader}"
+
+  if ! chroot "$root" "$loader" \
+    --library-path /usr/local/lib:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu \
+    "$binary" "$@" >"$raw_file" 2>"$stderr_file"; then
     echo '=== stdout ===' >&2
     sed -n '1,160p' "$raw_file" >&2 || true
     echo '=== stderr ===' >&2
@@ -329,14 +378,37 @@ assert_cxl_json_list() {
     sed -n '1,160p' "$stderr_file" >&2 || true
     die "${label} emitted no JSON output"
   fi
+}
 
-  if ! jq -e 'type == "array" and all(.[]; type == "object")' "$raw_file" >/dev/null; then
-    echo '=== stdout ===' >&2
-    sed -n '1,160p' "$raw_file" >&2 || true
-    echo '=== stderr ===' >&2
-    sed -n '1,160p' "$stderr_file" >&2 || true
-    die "${label} emitted unexpected JSON output"
-  fi
+setup_synthetic_ndctl_sysfs() {
+  local root="$1"
+
+  mkdir -p \
+    "$root/sys/class/nd/ndctl0/device" \
+    "$root/sys/dev/char/1:1"
+
+  printf '1:1\n' >"$root/sys/class/nd/ndctl0/dev"
+  printf 'nfit_test.0\n' >"$root/sys/class/nd/ndctl0/device/provider"
+  printf 'bus dimm region namespace\n' >"$root/sys/class/nd/ndctl0/device/commands"
+  printf '0\n' >"$root/sys/class/nd/ndctl0/device/wait_probe"
+  ln -s /sys/class/nd/ndctl0 "$root/sys/dev/char/1:1/device"
+}
+
+setup_synthetic_daxctl_sysfs() {
+  local root="$1"
+
+  mkdir -p \
+    "$root/sys/class/dax" \
+    "$root/sys/bus/dax/devices" \
+    "$root/sys/devices/platform/mock/region0/dax_region" \
+    "$root/sys/devices/platform/mock/region0/dax" \
+    "$root/sys/devices/platform/mock/region0/dax0.0"
+
+  printf '4096\n' >"$root/sys/devices/platform/mock/region0/dax_region/size"
+  printf '4096\n' >"$root/sys/devices/platform/mock/region0/dax_region/align"
+  mkdir -p "$root/sys/devices/platform/mock/region0/dax/dax0.0"
+  ln -s /sys/devices/platform/mock/region0/dax/dax0.0 "$root/sys/class/dax/dax0.0"
+  ln -s /sys/devices/platform/mock/region0/dax0.0 "$root/sys/bus/dax/devices/dax0.0"
 }
 
 stage_original_json_c() {
@@ -668,31 +740,69 @@ test_nvme_cli() {
 test_ndctl() {
   log_step "Testing ndctl"
   assert_uses_selected_json_c /usr/bin/ndctl
-  assert_uses_selected_json_c /usr/bin/cxl
 
   rm -rf /tmp/ndctltest
-  mkdir -p /tmp/ndctltest
+  mkdir -p /tmp/ndctltest/root
 
-  assert_cxl_json_list \
-    "cxl list -B" \
-    "-B" \
+  populate_isolated_runtime_root /tmp/ndctltest/root /usr/bin/ndctl
+  setup_synthetic_ndctl_sysfs /tmp/ndctltest/root
+  run_isolated_json_list \
+    "ndctl list -B" \
+    /tmp/ndctltest/root \
+    /usr/bin/ndctl \
     /tmp/ndctltest/list.raw \
-    /tmp/ndctltest/list.err
+    /tmp/ndctltest/list.err \
+    list -B
+
+  if ! jq -e '
+    type == "array"
+    and (
+      length == 0
+      or all(.[]; type == "object"
+        and (.provider | type == "string")
+        and (.dev | type == "string"))
+    )
+  ' /tmp/ndctltest/list.raw >/dev/null; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' /tmp/ndctltest/list.raw >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' /tmp/ndctltest/list.err >&2 || true
+    die "ndctl list -B emitted unexpected JSON output"
+  fi
 }
 
 test_daxctl() {
   log_step "Testing daxctl"
   assert_uses_selected_json_c /usr/bin/daxctl
-  assert_uses_selected_json_c /usr/bin/cxl
 
   rm -rf /tmp/daxctltest
-  mkdir -p /tmp/daxctltest
+  mkdir -p /tmp/daxctltest/root
 
-  assert_cxl_json_list \
-    "cxl list -R" \
-    "-R" \
+  populate_isolated_runtime_root /tmp/daxctltest/root /usr/bin/daxctl
+  setup_synthetic_daxctl_sysfs /tmp/daxctltest/root
+  run_isolated_json_list \
+    "daxctl list -R" \
+    /tmp/daxctltest/root \
+    /usr/bin/daxctl \
     /tmp/daxctltest/list.raw \
-    /tmp/daxctltest/list.err
+    /tmp/daxctltest/list.err \
+    list -R
+
+  if ! jq -e '
+    type == "array"
+    and (
+      length == 0
+      or all(.[]; type == "object"
+        and (.id | type == "number")
+        and (.path | type == "string"))
+    )
+  ' /tmp/daxctltest/list.raw >/dev/null; then
+    echo '=== stdout ===' >&2
+    sed -n '1,160p' /tmp/daxctltest/list.raw >&2 || true
+    echo '=== stderr ===' >&2
+    sed -n '1,160p' /tmp/daxctltest/list.err >&2 || true
+    die "daxctl list -R emitted unexpected JSON output"
+  fi
 }
 
 test_bluez_mesh_build() {
