@@ -4,15 +4,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE_TAG="${LIBJSON_ORIGINAL_TEST_IMAGE:-libjson-original-test:ubuntu24.04}"
 MODE="safe-package"
+CHECKS="runtime"
 PACKAGE_DIR=""
+ONLY=""
 
 usage() {
   cat <<'EOF'
-usage: test-original.sh [--mode safe|safe-package|original-source] [--package-dir <dir>]
+usage: test-original.sh [--mode safe|safe-package|original-source] [--checks runtime|compile|all] [--only <dependent-name-or-source-package>] [--package-dir <dir>]
 
 safe-package is the default compatibility target; safe is accepted as a
 backward-compatible alias. Use original-source only for baseline comparisons
 against a /usr/local install.
+
+--checks defaults to runtime so existing callers keep their current behavior.
+Use compile to build downstream dependents from source, or all to run compile
+checks first and runtime checks second in the same container session.
+
+--only filters the dependent matrix by display name or by source package name
+from dependents.json. Matching a source package runs every listed dependent
+that shares that source package.
 
 --package-dir reuses prebuilt safe Debian packages instead of rebuilding them
 inside the Ubuntu 24.04 testbed. This option is only valid with safe-package.
@@ -23,6 +33,14 @@ while (($#)); do
   case "$1" in
     --mode)
       MODE="${2:?missing value for --mode}"
+      shift 2
+      ;;
+    --checks)
+      CHECKS="${2:?missing value for --checks}"
+      shift 2
+      ;;
+    --only)
+      ONLY="${2:?missing value for --only}"
       shift 2
       ;;
     --package-dir)
@@ -52,6 +70,16 @@ case "$MODE" in
     ;;
   *)
     printf 'unsupported mode: %s\n' "$MODE" >&2
+    usage >&2
+    exit 1
+    ;;
+esac
+
+case "$CHECKS" in
+  runtime|compile|all)
+    ;;
+  *)
+    printf 'unsupported checks mode: %s\n' "$CHECKS" >&2
     usage >&2
     exit 1
     ;;
@@ -138,6 +166,8 @@ docker_args=(
   --cap-add=NET_ADMIN
   --cap-add=SYS_ADMIN
   -e "LIBJSON_TEST_MODE=$MODE"
+  -e "LIBJSON_TEST_CHECKS=$CHECKS"
+  -e "LIBJSON_TEST_ONLY=$ONLY"
   -v "$ROOT":/work:ro
 )
 
@@ -158,16 +188,42 @@ export LC_ALL=C.UTF-8
 
 ROOT=/work
 MODE="${LIBJSON_TEST_MODE:-safe-package}"
+CHECKS="${LIBJSON_TEST_CHECKS:-runtime}"
+ONLY_FILTER="${LIBJSON_TEST_ONLY:-}"
 PACKAGE_DIR="${LIBJSON_TEST_PACKAGE_DIR:-}"
 WORKSPACE_COPY=/tmp/libjson-safe-work
 ARTIFACT_DIR=/tmp/libjson-safe-artifacts
+DEPENDENT_SOURCE_ROOT=/tmp/libjson-dependent-sources
 JSON_C_LIBDIR=""
 JSON_C_RUNTIME_LIB=""
 JSON_C_MODE_LABEL=""
+JSON_C_INCLUDEDIR=""
+JSON_C_HEADER_DIR=""
+JSON_C_PREFIX=""
+JSON_C_PKGCONFIG_DIR=""
+JSON_C_CMAKE_DIR=""
+JSON_C_SHARED_LINK=""
+JSON_C_CFLAGS=""
+CURRENT_DEPENDENT_NAME=""
+CURRENT_SOURCE_PACKAGE=""
+CURRENT_ARTIFACT_PATH=""
+NDCTL_MATRIX_BUILD_DIR=""
+APT_UPDATED=0
+declare -A SOURCE_CACHE=()
+declare -A BUILD_DEPS_CACHE=()
 
 case "$MODE" in
   safe)
     MODE="safe-package"
+    ;;
+esac
+
+case "$CHECKS" in
+  runtime|compile|all)
+    ;;
+  *)
+    printf 'unsupported checks mode inside container: %s\n' "$CHECKS" >&2
+    exit 1
     ;;
 esac
 
@@ -182,8 +238,8 @@ die() {
 
 assert_dependents_inventory() {
   local expected actual
-  expected=$'BIND 9\nFRRouting\nSway\nGDAL\nnvme-cli\nndctl\ndaxctl\nBlueZ Mesh Daemon\nsyslog-ng\nttyd\ntlog\nPuREST JSON for Pure Data'
-  actual="$(jq -r '.dependents[].name' "$ROOT/dependents.json")"
+  expected=$'BIND 9\tbind9\nFRRouting\tfrr\nSway\tsway\nGDAL\tgdal\nnvme-cli\tnvme-cli\nndctl\tndctl\ndaxctl\tndctl\nBlueZ Mesh Daemon\tbluez\nsyslog-ng\tsyslog-ng\nttyd\tttyd\ntlog\ttlog\nPuREST JSON for Pure Data\tpd-purest-json'
+  actual="$(jq -r '.dependents[] | [.name, .source_package] | @tsv' "$ROOT/dependents.json")"
   if [[ "$actual" != "$expected" ]]; then
     echo "dependents.json does not match the expected dependent matrix" >&2
     diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") >&2 || true
@@ -250,7 +306,204 @@ setup_packaged_json_env() {
   JSON_C_MODE_LABEL="safe-package"
 }
 
-assert_uses_selected_json_c() {
+setup_json_c_build_env() {
+  local path
+
+  JSON_C_INCLUDEDIR="$(pkg-config --variable=includedir json-c)"
+  JSON_C_PREFIX="$(pkg-config --variable=prefix json-c)"
+  JSON_C_CFLAGS="$(pkg-config --cflags json-c)"
+
+  if [[ -f "$JSON_C_INCLUDEDIR/json-c/json.h" ]]; then
+    JSON_C_HEADER_DIR="$JSON_C_INCLUDEDIR/json-c"
+  elif [[ -f "$JSON_C_INCLUDEDIR/json.h" ]]; then
+    JSON_C_HEADER_DIR="$JSON_C_INCLUDEDIR"
+  else
+    die "could not locate json-c headers under ${JSON_C_INCLUDEDIR}"
+  fi
+
+  JSON_C_PKGCONFIG_DIR=""
+  for path in \
+    "$JSON_C_LIBDIR/pkgconfig" \
+    "$JSON_C_PREFIX/lib/pkgconfig" \
+    "$JSON_C_PREFIX/lib/x86_64-linux-gnu/pkgconfig" \
+    "$JSON_C_PREFIX/share/pkgconfig"
+  do
+    if [[ -f "$path/json-c.pc" ]]; then
+      JSON_C_PKGCONFIG_DIR="$path"
+      break
+    fi
+  done
+  [[ -n "$JSON_C_PKGCONFIG_DIR" ]] || die "could not locate json-c.pc for ${JSON_C_MODE_LABEL}"
+
+  JSON_C_CMAKE_DIR=""
+  for path in \
+    "$JSON_C_LIBDIR/cmake/json-c" \
+    "$JSON_C_PREFIX/lib/cmake/json-c" \
+    "$JSON_C_PREFIX/lib/x86_64-linux-gnu/cmake/json-c"
+  do
+    if [[ -d "$path" ]]; then
+      JSON_C_CMAKE_DIR="$path"
+      break
+    fi
+  done
+  [[ -n "$JSON_C_CMAKE_DIR" ]] || die "could not locate json-c CMake metadata for ${JSON_C_MODE_LABEL}"
+
+  JSON_C_SHARED_LINK="$(find "$JSON_C_LIBDIR" -maxdepth 1 \( -type f -o -type l \) -name 'libjson-c.so' | sort | head -n 1)"
+  [[ -n "$JSON_C_SHARED_LINK" ]] || die "could not locate libjson-c.so in ${JSON_C_LIBDIR}"
+  JSON_C_SHARED_LINK="$(readlink -f "$JSON_C_SHARED_LINK")"
+
+  export PKG_CONFIG_PATH
+  PKG_CONFIG_PATH="${JSON_C_PKGCONFIG_DIR}${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+
+  export CMAKE_PREFIX_PATH
+  CMAKE_PREFIX_PATH="${JSON_C_PREFIX}${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+
+  export CMAKE_LIBRARY_PATH
+  CMAKE_LIBRARY_PATH="${JSON_C_LIBDIR}${CMAKE_LIBRARY_PATH:+:$CMAKE_LIBRARY_PATH}"
+
+  export CMAKE_INCLUDE_PATH
+  CMAKE_INCLUDE_PATH="${JSON_C_HEADER_DIR}:${JSON_C_INCLUDEDIR}${CMAKE_INCLUDE_PATH:+:$CMAKE_INCLUDE_PATH}"
+
+  export CPPFLAGS
+  CPPFLAGS="${JSON_C_CFLAGS}${CPPFLAGS:+ $CPPFLAGS}"
+
+  export LDFLAGS
+  LDFLAGS="-L${JSON_C_LIBDIR} -Wl,-rpath,${JSON_C_LIBDIR} -Wl,-rpath-link,${JSON_C_LIBDIR}${LDFLAGS:+ $LDFLAGS}"
+
+  export LIBRARY_PATH
+  LIBRARY_PATH="${JSON_C_LIBDIR}${LIBRARY_PATH:+:$LIBRARY_PATH}"
+
+  export LD_LIBRARY_PATH
+  LD_LIBRARY_PATH="${JSON_C_LIBDIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+}
+
+normalize_filter() {
+  tr '[:upper:]' '[:lower:]' <<<"$1"
+}
+
+matches_only_filter() {
+  local dependent_name="$1"
+  local source_package="$2"
+  local normalized_only
+
+  [[ -z "$ONLY_FILTER" ]] && return 0
+
+  normalized_only="$(normalize_filter "$ONLY_FILTER")"
+  [[ "$normalized_only" == "$(normalize_filter "$dependent_name")" ]] && return 0
+  [[ "$normalized_only" == "$(normalize_filter "$source_package")" ]] && return 0
+  return 1
+}
+
+assert_only_filter_matches_inventory() {
+  local name source matched=0
+
+  [[ -z "$ONLY_FILTER" ]] && return 0
+
+  while IFS=$'\t' read -r name source; do
+    if matches_only_filter "$name" "$source"; then
+      matched=1
+      break
+    fi
+  done < <(jq -r '.dependents[] | [.name, .source_package] | @tsv' "$ROOT/dependents.json")
+
+  ((matched == 1)) || die "--only did not match any dependent name or source package: ${ONLY_FILTER}"
+}
+
+set_dependent_context() {
+  CURRENT_DEPENDENT_NAME="$1"
+  CURRENT_SOURCE_PACKAGE="$2"
+  CURRENT_ARTIFACT_PATH="${3:-}"
+}
+
+clear_dependent_context() {
+  CURRENT_DEPENDENT_NAME=""
+  CURRENT_SOURCE_PACKAGE=""
+  CURRENT_ARTIFACT_PATH=""
+}
+
+compile_fail() {
+  echo "compile failure:" >&2
+  echo "  dependent: ${CURRENT_DEPENDENT_NAME:-unknown}" >&2
+  echo "  source package: ${CURRENT_SOURCE_PACKAGE:-unknown}" >&2
+  echo "  json-c implementation: ${JSON_C_MODE_LABEL:-unknown} (${JSON_C_RUNTIME_LIB:-unknown})" >&2
+  if [[ -n "${CURRENT_ARTIFACT_PATH:-}" ]]; then
+    echo "  artifact: ${CURRENT_ARTIFACT_PATH}" >&2
+  fi
+  echo "  reason: $*" >&2
+  exit 1
+}
+
+ensure_apt_metadata() {
+  if ((APT_UPDATED == 0)); then
+    log_step "Refreshing apt metadata for dependent source builds" >&2
+    apt-get update >/dev/null
+    APT_UPDATED=1
+  fi
+}
+
+run_logged() {
+  local logfile="$1"
+  shift
+
+  : >"$logfile"
+  printf '+ ' >>"$logfile"
+  printf '%q ' "$@" >>"$logfile"
+  printf '\n' >>"$logfile"
+  "$@" >>"$logfile" 2>&1
+}
+
+print_log_excerpt() {
+  local logfile="$1"
+  echo "=== ${logfile} (head) ===" >&2
+  sed -n '1,120p' "$logfile" >&2 || true
+  echo "=== ${logfile} (tail) ===" >&2
+  tail -n 120 "$logfile" >&2 || true
+}
+
+run_compile_step() {
+  local description="$1"
+  local logfile="$2"
+  shift 2
+
+  if ! run_logged "$logfile" "$@"; then
+    print_log_excerpt "$logfile"
+    compile_fail "${description} failed; see ${logfile}"
+  fi
+}
+
+assert_pkg_config_uses_selected_json_c() {
+  local resolved_libdir resolved_includedir
+
+  resolved_libdir="$(pkg-config --variable=libdir json-c)"
+  resolved_includedir="$(pkg-config --variable=includedir json-c)"
+
+  [[ "$resolved_libdir" == "$JSON_C_LIBDIR" ]] || compile_fail "pkg-config resolved the wrong json-c libdir: ${resolved_libdir}"
+  [[ "$resolved_includedir" == "$JSON_C_INCLUDEDIR" ]] || compile_fail "pkg-config resolved the wrong json-c includedir: ${resolved_includedir}"
+}
+
+assert_log_avoids_wrong_json_c() {
+  local logfile="$1"
+  local offending
+
+  [[ "$JSON_C_MODE_LABEL" == "original-source" ]] || return 0
+
+  offending="$(
+    grep -En '(^|[^[:alnum:]_])(json-c|libjson-c)([^[:alnum:]_]|$)' "$logfile" 2>/dev/null \
+      | grep -E '/usr/(include|lib)(/|$)' \
+      | grep -vF "$JSON_C_HEADER_DIR" \
+      | grep -vF "$JSON_C_INCLUDEDIR" \
+      | grep -vF "$JSON_C_LIBDIR" \
+      | grep -vF "$JSON_C_CMAKE_DIR" \
+      || true
+  )"
+
+  [[ -z "$offending" ]] || {
+    echo "$offending" >&2
+    compile_fail "build log shows resolution of the distro json-c: ${logfile}"
+  }
+}
+
+resolve_target_json_c_lib() {
   local target="$1"
   local ldd_out
   local resolved_lib
@@ -259,12 +512,119 @@ assert_uses_selected_json_c() {
   resolved_lib="$(awk '/libjson-c\.so/{print $3; exit}' <<<"$ldd_out")"
   [[ -n "$resolved_lib" ]] || {
     echo "$ldd_out" >&2
-    die "$target is not resolving libjson-c at all"
+    return 1
   }
-  resolved_lib="$(readlink -f "$resolved_lib")"
+  readlink -f "$resolved_lib"
+}
+
+resolve_built_artifact_path() {
+  local artifact="$1"
+  local artifact_dir artifact_base candidate
+
+  if [[ -f "$artifact" ]] && readelf -h "$artifact" >/dev/null 2>&1; then
+    printf '%s\n' "$artifact"
+    return 0
+  fi
+
+  artifact_dir="$(dirname "$artifact")"
+  artifact_base="$(basename "$artifact")"
+
+  candidate="${artifact_dir}/.libs/${artifact_base}"
+  if [[ -f "$candidate" ]] && readelf -h "$candidate" >/dev/null 2>&1; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  if [[ "$artifact_base" == *.la ]]; then
+    candidate="${artifact_dir}/.libs/${artifact_base%.la}.so"
+    if [[ -f "$candidate" ]] && readelf -h "$candidate" >/dev/null 2>&1; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
+  printf '%s\n' "$artifact"
+}
+
+assert_compiled_artifact_uses_selected_json_c() {
+  local artifact="$1"
+  local resolved_artifact
+  local readelf_out
+  local resolved_lib
+
+  resolved_artifact="$(resolve_built_artifact_path "$artifact")"
+  CURRENT_ARTIFACT_PATH="$resolved_artifact"
+  [[ -e "$resolved_artifact" ]] || compile_fail "built artifact is missing: ${resolved_artifact}"
+
+  if ! readelf_out="$(readelf -d "$resolved_artifact" 2>/dev/null)"; then
+    compile_fail "readelf could not inspect built artifact: ${resolved_artifact}"
+  fi
+
+  if ! grep -q 'libjson-c\.so\.5' <<<"$readelf_out"; then
+    resolved_lib="$(resolve_target_json_c_lib "$resolved_artifact" || true)"
+    [[ -n "$resolved_lib" ]] || compile_fail "built artifact does not resolve libjson-c.so.5: ${resolved_artifact}"
+  fi
+
+  resolved_lib="$(resolve_target_json_c_lib "$resolved_artifact" || true)"
+  [[ -n "$resolved_lib" ]] || compile_fail "built artifact is not resolving libjson-c at runtime: ${resolved_artifact}"
+  [[ "$resolved_lib" == "$JSON_C_RUNTIME_LIB" ]] || compile_fail "built artifact resolved ${resolved_lib}, expected ${JSON_C_RUNTIME_LIB}"
+
+  printf 'compiled dependent=%s source=%s json-c=%s artifact=%s\n' \
+    "$CURRENT_DEPENDENT_NAME" \
+    "$CURRENT_SOURCE_PACKAGE" \
+    "$JSON_C_RUNTIME_LIB" \
+    "$resolved_artifact"
+}
+
+assert_cmake_cache_uses_selected_json_c() {
+  local cache_file="$1"
+  local build_dir
+  local json_lines include_line library_line
+  local found_signal=0
+
+  [[ -f "$cache_file" ]] || compile_fail "missing CMake cache: ${cache_file}"
+  build_dir="$(dirname "$cache_file")"
+
+  json_lines="$(grep -E '^(json-c_DIR|JSONC_[A-Z_]+|JSON-C_[A-Z_]+):' "$cache_file" || true)"
+  [[ -n "$json_lines" ]] || compile_fail "CMake cache does not record json-c resolution: ${cache_file}"
+
+  if grep -q '^json-c_DIR:PATH=' "$cache_file"; then
+    grep -Fxq "json-c_DIR:PATH=${JSON_C_CMAKE_DIR}" "$cache_file" || compile_fail "CMake resolved json-c_DIR away from ${JSON_C_CMAKE_DIR}"
+    found_signal=1
+  fi
+
+  include_line="$(grep -E '^(JSONC_INCLUDE_DIR|JSON-C_INCLUDE_DIR):PATH=' "$cache_file" | head -n 1 || true)"
+  if [[ -n "$include_line" ]]; then
+    [[ "$include_line" == *"${JSON_C_HEADER_DIR}"* || "$include_line" == *"${JSON_C_INCLUDEDIR}"* ]] || compile_fail "CMake cache resolved the wrong json-c include path: ${include_line}"
+    found_signal=1
+  fi
+
+  library_line="$(grep -E '^(JSONC_LIBRARY|JSON-C_LIBRARY):FILEPATH=' "$cache_file" | head -n 1 || true)"
+  if [[ -n "$library_line" ]]; then
+    [[ "$library_line" == *"${JSON_C_LIBDIR}/"* ]] || compile_fail "CMake cache resolved the wrong json-c library path: ${library_line}"
+    found_signal=1
+  fi
+
+  if ((found_signal == 0)); then
+    if grep -R -Fq "$JSON_C_CMAKE_DIR" "$build_dir" \
+      || grep -R -Fq "$JSON_C_SHARED_LINK" "$build_dir" \
+      || grep -R -Fq "$JSON_C_HEADER_DIR" "$build_dir" \
+      || grep -R -Fq "$JSON_C_LIBDIR" "$build_dir"; then
+      found_signal=1
+    fi
+  fi
+
+  ((found_signal == 1)) || compile_fail "CMake cache did not record a usable json-c resolution signal: ${cache_file}"
+}
+
+assert_uses_selected_json_c() {
+  local target="$1"
+  local resolved_lib
+
+  resolved_lib="$(resolve_target_json_c_lib "$target" || true)"
+  [[ -n "$resolved_lib" ]] || die "$target is not resolving libjson-c at all"
 
   if [[ "$resolved_lib" != "$JSON_C_RUNTIME_LIB" ]]; then
-    echo "$ldd_out" >&2
     die "$target is not resolving libjson-c from ${JSON_C_MODE_LABEL} (${JSON_C_RUNTIME_LIB})"
   fi
 }
@@ -657,6 +1017,7 @@ stage_original_json_c() {
   done
 
   setup_original_json_env
+  setup_json_c_build_env
 
   printf 'Using %s json-c %s from %s\n' \
     "$JSON_C_MODE_LABEL" \
@@ -686,19 +1047,486 @@ build_safe_packages() {
     "$package_root"/libjson-c-dev_*.deb
   ldconfig
 
-  log_step "Running package-centric installed-artifact smoke tests"
-  if [[ -n "$PACKAGE_DIR" ]]; then
-    "$ROOT/safe/debian/tests/unit-test"
-  else
-    "$WORKSPACE_COPY/safe/debian/tests/unit-test"
-  fi
-
   setup_packaged_json_env
+  setup_json_c_build_env
 
   printf 'Using %s json-c %s from %s\n' \
     "$JSON_C_MODE_LABEL" \
     "$(pkg-config --modversion json-c)" \
     "$JSON_C_RUNTIME_LIB"
+}
+
+run_safe_package_smoke_tests() {
+  log_step "Running package-centric installed-artifact smoke tests"
+
+  if [[ -n "$PACKAGE_DIR" ]]; then
+    "$ROOT/safe/debian/tests/unit-test"
+  else
+    "$WORKSPACE_COPY/safe/debian/tests/unit-test"
+  fi
+}
+
+fetch_source_package() {
+  local source_package="$1"
+  local source_root="${DEPENDENT_SOURCE_ROOT}/${source_package}"
+  local source_dir=""
+  local dsc_name
+
+  if [[ -n "${SOURCE_CACHE[$source_package]-}" && -d "${SOURCE_CACHE[$source_package]}" ]]; then
+    printf '%s\n' "${SOURCE_CACHE[$source_package]}"
+    return 0
+  fi
+
+  ensure_apt_metadata
+  log_step "Fetching source package ${source_package}" >&2
+
+  rm -rf "$source_root"
+  mkdir -p "$source_root"
+  run_compile_step \
+    "apt-get source ${source_package}" \
+    "${source_root}/apt-source.log" \
+    bash -lc "cd '$source_root' && apt-get source '$source_package'"
+
+  dsc_name="$(find "$source_root" -mindepth 1 -maxdepth 1 -type f -name '*.dsc' | sort | head -n 1)"
+  [[ -n "$dsc_name" ]] || compile_fail "apt-get source did not produce a .dsc for ${source_package}"
+
+  source_dir="$(find "$source_root" -mindepth 1 -maxdepth 1 -type d | sort | head -n 1)"
+  [[ -n "$source_dir" ]] || compile_fail "apt-get source did not unpack ${source_package} into ${source_root}"
+
+  SOURCE_CACHE["$source_package"]="$source_dir"
+  printf '%s\n' "$source_dir"
+}
+
+install_build_deps() {
+  local source_package="$1"
+  local state="${BUILD_DEPS_CACHE[$source_package]-}"
+  local log_dir="/tmp/libjson-build-deps/${source_package}"
+
+  [[ -n "$state" ]] && return 0
+
+  ensure_apt_metadata
+  mkdir -p "$log_dir"
+  log_step "Installing build dependencies for ${source_package}" >&2
+
+  run_compile_step \
+    "apt-get build-dep ${source_package}" \
+    "${log_dir}/build-dep.log" \
+    apt-get build-dep -y "$source_package"
+
+  assert_pkg_config_uses_selected_json_c
+  BUILD_DEPS_CACHE["$source_package"]=1
+}
+
+prepare_out_of_tree_build() {
+  local source_package="$1"
+  local build_name="$2"
+  local build_root="/tmp/libjson-dependent-build/${source_package}/${build_name}"
+
+  rm -rf "$build_root"
+  mkdir -p "$build_root"
+  printf '%s\n' "$build_root"
+}
+
+require_built_artifact() {
+  local candidate="$1"
+  [[ -e "$candidate" ]] || compile_fail "expected built artifact is missing: ${candidate}"
+}
+
+compile_bind9() {
+  local source_package="bind9"
+  local srcdir log_root host_multiarch artifact
+
+  set_dependent_context "BIND 9" "$source_package" "bin/named/named"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  host_multiarch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+  log_root="/tmp/libjson-compile/${source_package}/named"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling BIND 9 against ${JSON_C_MODE_LABEL} json-c"
+  run_compile_step \
+    "configure BIND 9" \
+    "${log_root}/configure.log" \
+    bash -lc "cd '$srcdir' && ./configure --libdir=/usr/lib/${host_multiarch} --sysconfdir=/etc/bind --localstatedir=/ --enable-largefile --enable-shared --disable-static --with-openssl=/usr --with-gssapi=yes --with-libidn2 --with-json-c --with-lmdb=/usr --with-maxminddb"
+  run_compile_step \
+    "build BIND 9 named" \
+    "${log_root}/build.log" \
+    bash -lc "cd '$srcdir' && make -j'$(nproc)' V=1 all"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${srcdir}/bin/named/named"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_frr() {
+  local source_package="frr"
+  local srcdir log_root host_multiarch artifact
+
+  set_dependent_context "FRRouting" "$source_package" "zebra/zebra"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  host_multiarch="$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+  log_root="/tmp/libjson-compile/${source_package}/zebra"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling FRRouting zebra against ${JSON_C_MODE_LABEL} json-c"
+  if [[ ! -x "$srcdir/configure" ]]; then
+    run_compile_step \
+      "bootstrap FRRouting" \
+      "${log_root}/bootstrap.log" \
+      bash -lc "cd '$srcdir' && autoreconf -fi"
+  fi
+  run_compile_step \
+    "configure FRRouting" \
+    "${log_root}/configure.log" \
+    bash -lc "cd '$srcdir' && LIBTOOLFLAGS='-rpath /usr/lib/${host_multiarch}/frr' ./configure --localstatedir=/var/run/frr --sbindir=/usr/lib/frr --sysconfdir=/etc/frr --with-vtysh-pager=/usr/bin/pager --libdir=/usr/lib/${host_multiarch}/frr --with-moduledir=/usr/lib/${host_multiarch}/frr/modules --disable-dependency-tracking --disable-rpki --disable-scripting --disable-pim6d --disable-doc --disable-doc-html --disable-snmp --disable-fpm --disable-protobuf --disable-zeromq --disable-ospfapi --disable-bgp-vnc --enable-multipath=64 --enable-user=frr --enable-group=frr --enable-vty-group=frrvty --enable-configfile-mask=0640 --enable-logfile-mask=0640"
+  run_compile_step \
+    "build FRRouting zebra" \
+    "${log_root}/build.log" \
+    bash -lc "cd '$srcdir' && make -j'$(nproc)' V=1 zebra/zebra"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${srcdir}/zebra/zebra"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_sway() {
+  local source_package="sway"
+  local srcdir builddir log_root artifact
+
+  set_dependent_context "Sway" "$source_package" "build/sway/sway"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  builddir="$(prepare_out_of_tree_build "$source_package" sway)"
+  log_root="/tmp/libjson-compile/${source_package}/sway"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling Sway against ${JSON_C_MODE_LABEL} json-c"
+  run_compile_step \
+    "configure Sway" \
+    "${log_root}/configure.log" \
+    meson setup "$builddir" "$srcdir" --libexecdir=lib
+  run_compile_step \
+    "build Sway" \
+    "${log_root}/build.log" \
+    meson compile -C "$builddir" -v sway
+  assert_log_avoids_wrong_json_c "${builddir}/meson-logs/meson-log.txt"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${builddir}/sway/sway"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_gdal() {
+  local source_package="gdal"
+  local srcdir builddir log_root artifact
+
+  set_dependent_context "GDAL" "$source_package" "build/apps/ogrinfo"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  builddir="$(prepare_out_of_tree_build "$source_package" gdal)"
+  log_root="/tmp/libjson-compile/${source_package}/ogr"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling GDAL GeoJSON tools against ${JSON_C_MODE_LABEL} json-c"
+  run_compile_step \
+    "configure GDAL" \
+    "${log_root}/configure.log" \
+    cmake -S "$srcdir" -B "$builddir" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -Djson-c_DIR="$JSON_C_CMAKE_DIR" \
+      -DJSONC_ROOT="$JSON_C_PREFIX" \
+      -DJSONC_INCLUDE_DIR="$JSON_C_HEADER_DIR" \
+      -DJSONC_LIBRARY="$JSON_C_SHARED_LINK" \
+      -DBUILD_DOCS=OFF \
+      -DBUILD_PYTHON_BINDINGS=OFF \
+      -DGDAL_USE_JSONC=ON
+  assert_cmake_cache_uses_selected_json_c "${builddir}/CMakeCache.txt"
+  run_compile_step \
+    "build GDAL ogrinfo/ogr2ogr" \
+    "${log_root}/build.log" \
+    cmake --build "$builddir" --parallel "$(nproc)" --verbose --target ogrinfo ogr2ogr
+  assert_log_avoids_wrong_json_c "${log_root}/configure.log"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${builddir}/apps/ogrinfo"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+
+  CURRENT_ARTIFACT_PATH="${builddir}/apps/ogr2ogr"
+  require_built_artifact "$CURRENT_ARTIFACT_PATH"
+  assert_compiled_artifact_uses_selected_json_c "$CURRENT_ARTIFACT_PATH"
+  clear_dependent_context
+}
+
+compile_nvme_cli() {
+  local source_package="nvme-cli"
+  local srcdir builddir log_root artifact
+
+  set_dependent_context "nvme-cli" "$source_package" "build/nvme"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  builddir="$(prepare_out_of_tree_build "$source_package" nvme)"
+  log_root="/tmp/libjson-compile/${source_package}/nvme"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling nvme-cli against ${JSON_C_MODE_LABEL} json-c"
+  run_compile_step \
+    "configure nvme-cli" \
+    "${log_root}/configure.log" \
+    meson setup "$builddir" "$srcdir" -Ddocs=man -Ddocs-build=false
+  run_compile_step \
+    "build nvme-cli" \
+    "${log_root}/build.log" \
+    meson compile -C "$builddir" -v nvme
+  assert_log_avoids_wrong_json_c "${builddir}/meson-logs/meson-log.txt"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${builddir}/nvme"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+ensure_ndctl_build() {
+  local source_package="ndctl"
+  local srcdir builddir log_root
+
+  if [[ -n "$NDCTL_MATRIX_BUILD_DIR" && -d "$NDCTL_MATRIX_BUILD_DIR" ]]; then
+    return 0
+  fi
+
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  builddir="$(prepare_out_of_tree_build "$source_package" matrix)"
+  log_root="/tmp/libjson-compile/${source_package}/matrix"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling ndctl/daxctl against ${JSON_C_MODE_LABEL} json-c" >&2
+  run_compile_step \
+    "configure ndctl" \
+    "${log_root}/configure.log" \
+    meson setup "$builddir" "$srcdir" -Dsystemd=disabled -Dlibtracefs=disabled
+  run_compile_step \
+    "build ndctl/daxctl" \
+    "${log_root}/build.log" \
+    meson compile -C "$builddir" -v ./ndctl/ndctl:executable ./daxctl/daxctl:executable
+  assert_log_avoids_wrong_json_c "${builddir}/meson-logs/meson-log.txt"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  NDCTL_MATRIX_BUILD_DIR="$builddir"
+}
+
+compile_ndctl() {
+  local artifact
+
+  set_dependent_context "ndctl" "ndctl" "build/ndctl/ndctl"
+  ensure_ndctl_build
+  artifact="${NDCTL_MATRIX_BUILD_DIR}/ndctl/ndctl"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_daxctl() {
+  local artifact
+
+  set_dependent_context "daxctl" "ndctl" "build/daxctl/daxctl"
+  ensure_ndctl_build
+  artifact="${NDCTL_MATRIX_BUILD_DIR}/daxctl/daxctl"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_bluez_mesh() {
+  local source_package="bluez"
+  local srcdir log_root artifact
+
+  set_dependent_context "BlueZ Mesh Daemon" "$source_package" "mesh/bluetooth-meshd"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  log_root="/tmp/libjson-compile/${source_package}/mesh"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling BlueZ mesh tools against ${JSON_C_MODE_LABEL} json-c"
+  run_compile_step \
+    "configure BlueZ" \
+    "${log_root}/configure.log" \
+    bash -lc "cd '$srcdir' && ./configure --enable-mesh --disable-manpages --disable-systemd --disable-monitor --disable-obex --disable-client"
+  run_compile_step \
+    "build BlueZ mesh targets" \
+    "${log_root}/build.log" \
+    bash -lc "cd '$srcdir' && make -j'$(nproc)' V=1 mesh/bluetooth-meshd tools/mesh-cfgclient"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${srcdir}/mesh/bluetooth-meshd"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+
+  CURRENT_ARTIFACT_PATH="${srcdir}/tools/mesh-cfgclient"
+  require_built_artifact "$CURRENT_ARTIFACT_PATH"
+  assert_compiled_artifact_uses_selected_json_c "$CURRENT_ARTIFACT_PATH"
+  clear_dependent_context
+}
+
+compile_syslog_ng() {
+  local source_package="syslog-ng"
+  local srcdir builddir log_root artifact build_gnu_type
+
+  set_dependent_context "syslog-ng" "$source_package" "modules/json/.libs/libjson-plugin.so"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  builddir="$(prepare_out_of_tree_build "$source_package" json-plugin)"
+  log_root="/tmp/libjson-compile/${source_package}/json-plugin"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+  build_gnu_type="$(dpkg-architecture -qDEB_BUILD_GNU_TYPE)"
+
+  log_step "Compiling syslog-ng JSON plugin against ${JSON_C_MODE_LABEL} json-c"
+  if [[ ! -x "$srcdir/configure" ]]; then
+    run_compile_step \
+      "bootstrap syslog-ng" \
+      "${log_root}/bootstrap.log" \
+      bash -lc "cd '$srcdir' && autoreconf -fi"
+  fi
+    run_compile_step \
+      "configure syslog-ng" \
+      "${log_root}/configure.log" \
+    bash -lc "cd '$builddir' && SOURCE_REVISION='libjson-compile' '$srcdir/configure' --build='${build_gnu_type}' --prefix=/usr --mandir=/usr/share/man --sysconfdir=/etc/syslog-ng --localstatedir=/var/lib/syslog-ng --libdir=/usr/lib/syslog-ng --disable-silent-rules --enable-dynamic-linking --disable-ssl --disable-spoof-source --disable-tcp-wrapper --disable-sql --disable-mongodb --enable-json --disable-riemann --disable-java --disable-manpages --disable-amqp --disable-python --disable-http --disable-kafka --disable-systemd --disable-pacct --with-ivykis=system --with-jsonc=system --with-module-dir=/usr/lib/syslog-ng/4.3 --with-systemdsystemunitdir=/lib/systemd/system"
+  run_compile_step \
+    "build syslog-ng JSON plugin" \
+    "${log_root}/build.log" \
+    bash -lc "cd '$builddir' && make -j'$(nproc)' V=1 modules/json/libjson-plugin.la"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${builddir}/modules/json/.libs/libjson-plugin.so"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_ttyd() {
+  local source_package="ttyd"
+  local srcdir builddir log_root artifact
+
+  set_dependent_context "ttyd" "$source_package" "build/ttyd"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  builddir="$(prepare_out_of_tree_build "$source_package" ttyd)"
+  log_root="/tmp/libjson-compile/${source_package}/ttyd"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling ttyd against ${JSON_C_MODE_LABEL} json-c"
+  run_compile_step \
+    "configure ttyd" \
+    "${log_root}/configure.log" \
+    cmake -S "$srcdir" -B "$builddir" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" \
+      -DCMAKE_LIBRARY_PATH="$CMAKE_LIBRARY_PATH" \
+      -DCMAKE_INCLUDE_PATH="$CMAKE_INCLUDE_PATH" \
+      -DJSON-C_LIBRARY="$JSON_C_SHARED_LINK" \
+      -DJSON-C_INCLUDE_DIR="$JSON_C_HEADER_DIR"
+  assert_cmake_cache_uses_selected_json_c "${builddir}/CMakeCache.txt"
+  run_compile_step \
+    "build ttyd" \
+    "${log_root}/build.log" \
+    cmake --build "$builddir" --parallel "$(nproc)" --verbose --target ttyd
+  assert_log_avoids_wrong_json_c "${log_root}/configure.log"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${builddir}/ttyd"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_tlog() {
+  local source_package="tlog"
+  local srcdir log_root artifact
+
+  set_dependent_context "tlog" "$source_package" "src/tlog/.libs/tlog-rec"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  log_root="/tmp/libjson-compile/${source_package}/tlog-rec"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling tlog-rec against ${JSON_C_MODE_LABEL} json-c"
+  if [[ ! -x "$srcdir/configure" ]]; then
+    run_compile_step \
+      "bootstrap tlog" \
+      "${log_root}/bootstrap.log" \
+      bash -lc "cd '$srcdir' && autoreconf -fi"
+  fi
+  run_compile_step \
+    "configure tlog" \
+    "${log_root}/configure.log" \
+    bash -lc "cd '$srcdir' && ./configure --enable-utempter --disable-journal"
+  run_compile_step \
+    "build tlog-rec" \
+    "${log_root}/build.log" \
+    bash -lc "cd '$srcdir' && make -j'$(nproc)' V=1"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="${srcdir}/src/tlog/.libs/tlog-rec"
+  require_built_artifact "$artifact"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+  clear_dependent_context
+}
+
+compile_pd_purest_json() {
+  local source_package="pd-purest-json"
+  local srcdir log_root artifact
+
+  set_dependent_context "PuREST JSON for Pure Data" "$source_package" "json-encode.pd_linux"
+  install_build_deps "$source_package"
+  assert_pkg_config_uses_selected_json_c
+  srcdir="$(fetch_source_package "$source_package")"
+  log_root="/tmp/libjson-compile/${source_package}/pd"
+  rm -rf "$log_root"
+  mkdir -p "$log_root"
+
+  log_step "Compiling PuREST JSON externals against ${JSON_C_MODE_LABEL} json-c"
+  run_compile_step \
+    "build pd-purest-json" \
+    "${log_root}/build.log" \
+    bash -lc "cd '$srcdir' && make PDLIBBUILDER_DIR=/usr/share/pd-lib-builder"
+  assert_log_avoids_wrong_json_c "${log_root}/build.log"
+
+  artifact="$(find "$srcdir" -type f -name 'json-encode.pd_linux' | sort | head -n 1)"
+  [[ -n "$artifact" ]] || compile_fail "could not locate json-encode.pd_linux after the pd-purest-json build"
+  assert_compiled_artifact_uses_selected_json_c "$artifact"
+
+  CURRENT_ARTIFACT_PATH="$(find "$srcdir" -type f -name 'json-decode.pd_linux' | sort | head -n 1)"
+  [[ -n "$CURRENT_ARTIFACT_PATH" ]] || compile_fail "could not locate json-decode.pd_linux after the pd-purest-json build"
+  assert_compiled_artifact_uses_selected_json_c "$CURRENT_ARTIFACT_PATH"
+  clear_dependent_context
 }
 
 test_bind9() {
@@ -984,33 +1812,13 @@ test_daxctl() {
   fi
 }
 
-test_bluez_mesh_build() {
-  log_step "Building BlueZ mesh targets"
+test_bluez_meshd() {
+  log_step "Testing BlueZ Mesh Daemon"
 
-  (
-  apt-get update >/dev/null
-  rm -rf /tmp/bluez-src
-  mkdir -p /tmp/bluez-src
-  cd /tmp/bluez-src
-  apt-get source bluez >/dev/null
-
-  local srcdir
-  srcdir="$(find /tmp/bluez-src -mindepth 1 -maxdepth 1 -type d -name 'bluez-[0-9]*' | head -n 1)"
-  [[ -n "$srcdir" ]] || die "failed to unpack the BlueZ source package"
-
-  cd "$srcdir"
-  ./configure \
-    --enable-mesh \
-    --disable-manpages \
-    --disable-systemd \
-    --disable-monitor \
-    --disable-obex \
-    --disable-client
-  make -j"$(nproc)" mesh/bluetooth-meshd tools/mesh-cfgclient
-
-  assert_uses_selected_json_c "$srcdir/mesh/bluetooth-meshd"
-  assert_uses_selected_json_c "$srcdir/tools/mesh-cfgclient"
-  )
+  local meshd
+  meshd="$(dpkg -L bluez-meshd | awk '/\/bluetooth-meshd$/ { print; exit }')"
+  [[ -n "$meshd" ]] || die "could not locate the installed bluetooth-meshd binary"
+  assert_uses_selected_json_c "$meshd"
 }
 
 test_syslog_ng() {
@@ -1191,6 +1999,7 @@ PD
 }
 
 assert_dependents_inventory
+assert_only_filter_matches_inventory
 case "$MODE" in
   safe-package)
     build_safe_packages
@@ -1202,18 +2011,101 @@ case "$MODE" in
     die "unsupported mode inside container: $MODE"
     ;;
 esac
-test_bind9
-test_frr
-test_sway
-test_gdal
-test_nvme_cli
-test_ndctl
-test_daxctl
-test_bluez_mesh_build
-test_syslog_ng
-test_ttyd
-test_tlog
-test_pd_purest_json
 
-log_step "All ${JSON_C_MODE_LABEL} compatibility checks passed"
+run_compile_checks() {
+  if matches_only_filter "BIND 9" "bind9"; then
+    compile_bind9
+  fi
+  if matches_only_filter "FRRouting" "frr"; then
+    compile_frr
+  fi
+  if matches_only_filter "Sway" "sway"; then
+    compile_sway
+  fi
+  if matches_only_filter "GDAL" "gdal"; then
+    compile_gdal
+  fi
+  if matches_only_filter "nvme-cli" "nvme-cli"; then
+    compile_nvme_cli
+  fi
+  if matches_only_filter "ndctl" "ndctl"; then
+    compile_ndctl
+  fi
+  if matches_only_filter "daxctl" "ndctl"; then
+    compile_daxctl
+  fi
+  if matches_only_filter "BlueZ Mesh Daemon" "bluez"; then
+    compile_bluez_mesh
+  fi
+  if matches_only_filter "syslog-ng" "syslog-ng"; then
+    compile_syslog_ng
+  fi
+  if matches_only_filter "ttyd" "ttyd"; then
+    compile_ttyd
+  fi
+  if matches_only_filter "tlog" "tlog"; then
+    compile_tlog
+  fi
+  if matches_only_filter "PuREST JSON for Pure Data" "pd-purest-json"; then
+    compile_pd_purest_json
+  fi
+}
+
+run_runtime_checks() {
+  if [[ "$MODE" == "safe-package" ]]; then
+    run_safe_package_smoke_tests
+  fi
+
+  if matches_only_filter "BIND 9" "bind9"; then
+    test_bind9
+  fi
+  if matches_only_filter "FRRouting" "frr"; then
+    test_frr
+  fi
+  if matches_only_filter "Sway" "sway"; then
+    test_sway
+  fi
+  if matches_only_filter "GDAL" "gdal"; then
+    test_gdal
+  fi
+  if matches_only_filter "nvme-cli" "nvme-cli"; then
+    test_nvme_cli
+  fi
+  if matches_only_filter "ndctl" "ndctl"; then
+    test_ndctl
+  fi
+  if matches_only_filter "daxctl" "ndctl"; then
+    test_daxctl
+  fi
+  if matches_only_filter "BlueZ Mesh Daemon" "bluez"; then
+    test_bluez_meshd
+  fi
+  if matches_only_filter "syslog-ng" "syslog-ng"; then
+    test_syslog_ng
+  fi
+  if matches_only_filter "ttyd" "ttyd"; then
+    test_ttyd
+  fi
+  if matches_only_filter "tlog" "tlog"; then
+    test_tlog
+  fi
+  if matches_only_filter "PuREST JSON for Pure Data" "pd-purest-json"; then
+    test_pd_purest_json
+  fi
+}
+
+case "$CHECKS" in
+  runtime)
+    run_runtime_checks
+    ;;
+  compile)
+    run_compile_checks
+    ;;
+  all)
+    run_compile_checks
+    run_runtime_checks
+    ;;
+esac
+
+log_step "All ${JSON_C_MODE_LABEL} ${CHECKS} compatibility checks passed"
 CONTAINER_SCRIPT
