@@ -311,9 +311,20 @@ add_custom_command(
         ${PROJECT_SOURCE_DIR}/Cargo.toml
         ${PROJECT_SOURCE_DIR}/.cargo/config.toml
         ${PROJECT_SOURCE_DIR}/abi/public-api-manifest.tsv
+        ${PROJECT_SOURCE_DIR}/build.rs
         ${PROJECT_SOURCE_DIR}/src/lib.rs
         ${PROJECT_SOURCE_DIR}/src/abi.rs
+        ${PROJECT_SOURCE_DIR}/src/arraylist.rs
+        ${PROJECT_SOURCE_DIR}/src/debug.rs
+        ${PROJECT_SOURCE_DIR}/src/errors.rs
+        ${PROJECT_SOURCE_DIR}/src/linkhash.rs
+        ${PROJECT_SOURCE_DIR}/src/numeric.rs
+        ${PROJECT_SOURCE_DIR}/src/printbuf.rs
+        ${PROJECT_SOURCE_DIR}/src/random_seed.rs
+        ${PROJECT_SOURCE_DIR}/src/strerror.rs
         ${PROJECT_SOURCE_DIR}/src/stubs.rs
+        ${PROJECT_SOURCE_DIR}/src/variadic.c
+        ${PROJECT_SOURCE_DIR}/src/version.rs
         ${PROJECT_SOURCE_DIR}/tools/collect-native-static-libs.sh
     VERBATIM
 )
@@ -443,6 +454,26 @@ install(FILES ${PROJECT_BINARY_DIR}/json-c.pc DESTINATION "${INSTALL_PKGCONFIG_D
 install(FILES ${JSON_C_PUBLIC_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/json-c)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
+    add_executable(foundation_smoke tests/foundation/foundation_smoke.c)
+    add_dependencies(foundation_smoke json-c-static)
+    target_include_directories(foundation_smoke
+        PUBLIC
+            ${PROJECT_SOURCE_DIR}/include/json-c
+            ${PROJECT_BINARY_DIR}
+    )
+    target_link_libraries(foundation_smoke
+        PRIVATE
+            ${PROJECT_BINARY_DIR}/libjson-c.a
+            ${CMAKE_REQUIRED_LIBRARIES}
+            ${RUST_NATIVE_STATIC_LIBS}
+    )
+
+    add_test(NAME verify_02_foundation_scripts COMMAND foundation_smoke)
+    set_tests_properties(verify_02_foundation_scripts PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+
+    add_test(NAME verify_02_layout_check COMMAND ${PROJECT_SOURCE_DIR}/tools/check-layout.sh ${PROJECT_BINARY_DIR})
+    set_tests_properties(verify_02_layout_check PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+
     add_subdirectory(tests/upstream ${PROJECT_BINARY_DIR}/tests)
 endif()
 

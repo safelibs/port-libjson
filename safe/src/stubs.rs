@@ -3,78 +3,76 @@
 #![allow(unused_variables)]
 
 use crate::abi::*;
-
-const JSON_C_VERSION_BYTES: &[u8; 5] = b"0.17\0";
-const JSON_C_STRERROR_STUB: &[u8; 8] = b"ERRNO=0\0";
-const JSON_NUMBER_CHARS_BYTES: &[u8; 16] = b"0123456789.+-eE\0";
-const JSON_HEX_CHARS_BYTES: &[u8; 23] = b"0123456789abcdefABCDEF\0";
+use crate::{arraylist, debug, errors, linkhash, numeric, printbuf as printbuf_impl, random_seed, strerror, version};
 
 #[no_mangle]
-pub static mut json_number_chars: *const c_char = JSON_NUMBER_CHARS_BYTES.as_ptr().cast();
+pub static mut json_number_chars: *const c_char = numeric::JSON_NUMBER_CHARS_BYTES.as_ptr().cast();
 #[no_mangle]
-pub static mut json_hex_chars: *const c_char = JSON_HEX_CHARS_BYTES.as_ptr().cast();
+pub static mut json_hex_chars: *const c_char = numeric::JSON_HEX_CHARS_BYTES.as_ptr().cast();
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_add(_arg0: *mut array_list, _arg1: *mut c_void) -> c_int {
-    0
+pub unsafe extern "C" fn array_list_add(arg0: *mut array_list, arg1: *mut c_void) -> c_int {
+    arraylist::array_list_add_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_bsearch(_arg0: *mut *const c_void, _arg1: *mut array_list, _arg2: Option<comparison_fn>) -> *mut c_void {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn array_list_bsearch(arg0: *mut *const c_void, arg1: *mut array_list, arg2: Option<comparison_fn>) -> *mut c_void {
+    arraylist::array_list_bsearch_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_del_idx(_arg0: *mut array_list, _arg1: size_t, _arg2: size_t) -> c_int {
-    0
+pub unsafe extern "C" fn array_list_del_idx(arg0: *mut array_list, arg1: size_t, arg2: size_t) -> c_int {
+    arraylist::array_list_del_idx_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_free(_arg0: *mut array_list) {
+pub unsafe extern "C" fn array_list_free(arg0: *mut array_list) {
+    arraylist::array_list_free_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_get_idx(_arg0: *mut array_list, _arg1: size_t) -> *mut c_void {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn array_list_get_idx(arg0: *mut array_list, arg1: size_t) -> *mut c_void {
+    arraylist::array_list_get_idx_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_insert_idx(_arg0: *mut array_list, _arg1: size_t, _arg2: *mut c_void) -> c_int {
-    0
+pub unsafe extern "C" fn array_list_insert_idx(arg0: *mut array_list, arg1: size_t, arg2: *mut c_void) -> c_int {
+    arraylist::array_list_insert_idx_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_length(_arg0: *mut array_list) -> size_t {
-    0
+pub unsafe extern "C" fn array_list_length(arg0: *mut array_list) -> size_t {
+    arraylist::array_list_length_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_new(_arg0: Option<array_list_free_fn>) -> *mut array_list {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn array_list_new(arg0: Option<array_list_free_fn>) -> *mut array_list {
+    arraylist::array_list_new_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_new2(_arg0: Option<array_list_free_fn>, _arg1: c_int) -> *mut array_list {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn array_list_new2(arg0: Option<array_list_free_fn>, arg1: c_int) -> *mut array_list {
+    arraylist::array_list_new2_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_put_idx(_arg0: *mut array_list, _arg1: size_t, _arg2: *mut c_void) -> c_int {
-    0
+pub unsafe extern "C" fn array_list_put_idx(arg0: *mut array_list, arg1: size_t, arg2: *mut c_void) -> c_int {
+    arraylist::array_list_put_idx_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_shrink(_arg0: *mut array_list, _arg1: size_t) -> c_int {
-    0
+pub unsafe extern "C" fn array_list_shrink(arg0: *mut array_list, arg1: size_t) -> c_int {
+    arraylist::array_list_shrink_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn array_list_sort(_arg0: *mut array_list, _arg1: Option<comparison_fn>) {
+pub unsafe extern "C" fn array_list_sort(arg0: *mut array_list, arg1: Option<comparison_fn>) {
+    arraylist::array_list_sort_impl(arg0, arg1)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_c_get_random_seed() -> c_int {
-    0
+    random_seed::json_c_get_random_seed_impl()
 }
 
 #[no_mangle]
@@ -93,8 +91,8 @@ pub unsafe extern "C" fn json_c_visit(_arg0: *mut json_object, _arg1: c_int, _ar
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_global_set_string_hash(_arg0: c_int) -> c_int {
-    0
+pub unsafe extern "C" fn json_global_set_string_hash(arg0: c_int) -> c_int {
+    linkhash::json_global_set_string_hash_impl(arg0)
 }
 
 #[no_mangle]
@@ -452,18 +450,18 @@ pub unsafe extern "C" fn json_object_userdata_to_json_string(_arg0: *mut json_ob
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_parse_double(_arg0: *const c_char, _arg1: *mut c_double) -> c_int {
-    0
+pub unsafe extern "C" fn json_parse_double(arg0: *const c_char, arg1: *mut c_double) -> c_int {
+    numeric::json_parse_double_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_parse_int64(_arg0: *const c_char, _arg1: *mut int64_t) -> c_int {
-    0
+pub unsafe extern "C" fn json_parse_int64(arg0: *const c_char, arg1: *mut int64_t) -> c_int {
+    numeric::json_parse_int64_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_parse_uint64(_arg0: *const c_char, _arg1: *mut uint64_t) -> c_int {
-    0
+pub unsafe extern "C" fn json_parse_uint64(arg0: *const c_char, arg1: *mut uint64_t) -> c_int {
+    numeric::json_parse_uint64_impl(arg0, arg1)
 }
 
 #[no_mangle]
@@ -534,133 +532,138 @@ pub unsafe extern "C" fn json_tokener_set_flags(_arg0: *mut json_tokener, _arg1:
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn json_type_to_name(_arg0: json_type) -> *const c_char {
-    std::ptr::null()
+pub unsafe extern "C" fn json_type_to_name(arg0: json_type) -> *const c_char {
+    numeric::json_type_to_name_impl(arg0)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_util_get_last_err() -> *const c_char {
-    std::ptr::null()
+    errors::json_util_get_last_err_impl()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_char_equal(_arg0: *const c_void, _arg1: *const c_void) -> c_int {
-    0
+pub unsafe extern "C" fn lh_char_equal(arg0: *const c_void, arg1: *const c_void) -> c_int {
+    linkhash::lh_char_equal_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_kchar_table_new(_arg0: c_int, _arg1: Option<lh_entry_free_fn>) -> *mut lh_table {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn lh_kchar_table_new(arg0: c_int, arg1: Option<lh_entry_free_fn>) -> *mut lh_table {
+    linkhash::lh_kchar_table_new_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_kptr_table_new(_arg0: c_int, _arg1: Option<lh_entry_free_fn>) -> *mut lh_table {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn lh_kptr_table_new(arg0: c_int, arg1: Option<lh_entry_free_fn>) -> *mut lh_table {
+    linkhash::lh_kptr_table_new_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_ptr_equal(_arg0: *const c_void, _arg1: *const c_void) -> c_int {
-    0
+pub unsafe extern "C" fn lh_ptr_equal(arg0: *const c_void, arg1: *const c_void) -> c_int {
+    linkhash::lh_ptr_equal_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_delete(_arg0: *mut lh_table, _arg1: *const c_void) -> c_int {
-    0
+pub unsafe extern "C" fn lh_table_delete(arg0: *mut lh_table, arg1: *const c_void) -> c_int {
+    linkhash::lh_table_delete_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_delete_entry(_arg0: *mut lh_table, _arg1: *mut lh_entry) -> c_int {
-    0
+pub unsafe extern "C" fn lh_table_delete_entry(arg0: *mut lh_table, arg1: *mut lh_entry) -> c_int {
+    linkhash::lh_table_delete_entry_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_free(_arg0: *mut lh_table) {
+pub unsafe extern "C" fn lh_table_free(arg0: *mut lh_table) {
+    linkhash::lh_table_free_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_insert(_arg0: *mut lh_table, _arg1: *const c_void, _arg2: *const c_void) -> c_int {
-    0
+pub unsafe extern "C" fn lh_table_insert(arg0: *mut lh_table, arg1: *const c_void, arg2: *const c_void) -> c_int {
+    linkhash::lh_table_insert_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_insert_w_hash(_arg0: *mut lh_table, _arg1: *const c_void, _arg2: *const c_void, _arg3: c_ulong, _arg4: c_uint) -> c_int {
-    0
+pub unsafe extern "C" fn lh_table_insert_w_hash(arg0: *mut lh_table, arg1: *const c_void, arg2: *const c_void, arg3: c_ulong, arg4: c_uint) -> c_int {
+    linkhash::lh_table_insert_w_hash_impl(arg0, arg1, arg2, arg3, arg4)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_length(_arg0: *mut lh_table) -> c_int {
-    0
+pub unsafe extern "C" fn lh_table_length(arg0: *mut lh_table) -> c_int {
+    linkhash::lh_table_length_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_lookup_entry(_arg0: *mut lh_table, _arg1: *const c_void) -> *mut lh_entry {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn lh_table_lookup_entry(arg0: *mut lh_table, arg1: *const c_void) -> *mut lh_entry {
+    linkhash::lh_table_lookup_entry_impl(arg0, arg1)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_lookup_entry_w_hash(_arg0: *mut lh_table, _arg1: *const c_void, _arg2: c_ulong) -> *mut lh_entry {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn lh_table_lookup_entry_w_hash(arg0: *mut lh_table, arg1: *const c_void, arg2: c_ulong) -> *mut lh_entry {
+    linkhash::lh_table_lookup_entry_w_hash_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_lookup_ex(_arg0: *mut lh_table, _arg1: *const c_void, _arg2: *mut *mut c_void) -> json_bool {
-    0
+pub unsafe extern "C" fn lh_table_lookup_ex(arg0: *mut lh_table, arg1: *const c_void, arg2: *mut *mut c_void) -> json_bool {
+    linkhash::lh_table_lookup_ex_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_new(_arg0: c_int, _arg1: Option<lh_entry_free_fn>, _arg2: Option<lh_hash_fn>, _arg3: Option<lh_equal_fn>) -> *mut lh_table {
-    std::ptr::null_mut()
+pub unsafe extern "C" fn lh_table_new(arg0: c_int, arg1: Option<lh_entry_free_fn>, arg2: Option<lh_hash_fn>, arg3: Option<lh_equal_fn>) -> *mut lh_table {
+    linkhash::lh_table_new_impl(arg0, arg1, arg2, arg3)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn lh_table_resize(_arg0: *mut lh_table, _arg1: c_int) -> c_int {
-    0
+pub unsafe extern "C" fn lh_table_resize(arg0: *mut lh_table, arg1: c_int) -> c_int {
+    linkhash::lh_table_resize_impl(arg0, arg1)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn mc_get_debug() -> c_int {
-    0
+    debug::mc_get_debug_impl()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn mc_set_debug(_arg0: c_int) {
+pub unsafe extern "C" fn mc_set_debug(arg0: c_int) {
+    debug::mc_set_debug_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn mc_set_syslog(_arg0: c_int) {
+pub unsafe extern "C" fn mc_set_syslog(arg0: c_int) {
+    debug::mc_set_syslog_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn printbuf_free(_arg0: *mut printbuf) {
+pub unsafe extern "C" fn printbuf_free(arg0: *mut printbuf) {
+    printbuf_impl::printbuf_free_impl(arg0)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn printbuf_memappend(_arg0: *mut printbuf, _arg1: *const c_char, _arg2: c_int) -> c_int {
-    0
+pub unsafe extern "C" fn printbuf_memappend(arg0: *mut printbuf, arg1: *const c_char, arg2: c_int) -> c_int {
+    printbuf_impl::printbuf_memappend_impl(arg0, arg1, arg2)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn printbuf_memset(_arg0: *mut printbuf, _arg1: c_int, _arg2: c_int, _arg3: c_int) -> c_int {
-    0
+pub unsafe extern "C" fn printbuf_memset(arg0: *mut printbuf, arg1: c_int, arg2: c_int, arg3: c_int) -> c_int {
+    printbuf_impl::printbuf_memset_impl(arg0, arg1, arg2, arg3)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn printbuf_new() -> *mut printbuf {
-    std::ptr::null_mut()
+    printbuf_impl::printbuf_new_impl()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn printbuf_reset(_arg0: *mut printbuf) {
+pub unsafe extern "C" fn printbuf_reset(arg0: *mut printbuf) {
+    printbuf_impl::printbuf_reset_impl(arg0)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_c_version() -> *const c_char {
-    JSON_C_VERSION_BYTES.as_ptr().cast()
+    version::json_c_version_impl()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn json_c_version_num() -> c_int {
-    0x0000_1100
+    version::json_c_version_num_impl()
 }
 
 #[no_mangle]
@@ -669,8 +672,8 @@ pub unsafe extern "C" fn json_c_object_sizeof() -> size_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn _json_c_strerror(_arg0: c_int) -> *mut c_char {
-    JSON_C_STRERROR_STUB.as_ptr() as *mut c_char
+pub unsafe extern "C" fn _json_c_strerror(arg0: c_int) -> *mut c_char {
+    strerror::_json_c_strerror_impl(arg0)
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -684,27 +687,6 @@ json_pointer_getf:
 .globl json_pointer_setf
 .type json_pointer_setf, @function
 json_pointer_setf:
-    xor eax, eax
-    ret
-
-.globl mc_debug
-.type mc_debug, @function
-mc_debug:
-    ret
-
-.globl mc_error
-.type mc_error, @function
-mc_error:
-    ret
-
-.globl mc_info
-.type mc_info, @function
-mc_info:
-    ret
-
-.globl sprintbuf
-.type sprintbuf, @function
-sprintbuf:
     xor eax, eax
     ret
 
