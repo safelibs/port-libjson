@@ -50,7 +50,23 @@ endif()
 foreach(TESTNAME ${ALL_TEST_NAMES})
 
 add_executable(${TESTNAME} ${TESTNAME}.c)
-add_test(NAME ${TESTNAME} COMMAND ${PROJECT_SOURCE_DIR}/tests/upstream/${TESTNAME}.test)
+set(TEST_BUILD_TARGETS ${TESTNAME})
+if(TESTNAME STREQUAL "test1")
+    list(APPEND TEST_BUILD_TARGETS test1Formatted)
+elseif(TESTNAME STREQUAL "test2")
+    list(APPEND TEST_BUILD_TARGETS test2Formatted)
+endif()
+string(REPLACE ";" " " TEST_BUILD_TARGETS_STR "${TEST_BUILD_TARGETS}")
+add_test(
+    NAME ${TESTNAME}
+    COMMAND ${CMAKE_COMMAND} -E env
+            bash -lc
+            "set -euo pipefail; \
+             \"${CMAKE_COMMAND}\" --build \"${PROJECT_BINARY_DIR}\" --target ${TEST_BUILD_TARGETS_STR}; \
+             srcdir=\"${PROJECT_SOURCE_DIR}/tests/upstream\" \
+             top_builddir=\"${PROJECT_BINARY_DIR}\" \
+             \"${PROJECT_SOURCE_DIR}/tests/upstream/${TESTNAME}.test\""
+)
 set_tests_properties(${TESTNAME} PROPERTIES WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/tests)
 
 # XXX using the non-target_ versions of these doesn't work :(
