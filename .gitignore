@@ -1,0 +1,6 @@
+build-check/
+build-deb/
+debian/
+safe/out/
+safe/target/
+testSubDir/

@@ -295,5 +295,11 @@ pub(crate) unsafe fn json_pointer_set_impl(
     path: *const c_char,
     value: *mut json_object,
 ) -> c_int {
-    json_pointer_set_with_array_cb_impl(obj, path, value, json_object_array_put_idx_cb_impl, ptr::null_mut())
+    json_pointer_set_with_array_cb_impl(
+        obj,
+        path,
+        value,
+        json_object_array_put_idx_cb_impl,
+        ptr::null_mut(),
+    )
 }

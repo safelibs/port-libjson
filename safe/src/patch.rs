@@ -80,8 +80,11 @@ unsafe fn json_patch_apply_test(
     patch_error: *mut json_patch_error,
 ) -> c_int {
     let mut expected = ptr::null_mut();
-    if object::json_object_object_get_ex_impl(patch_elem, FIELD_VALUE.as_ptr().cast(), &mut expected)
-        == 0
+    if object::json_object_object_get_ex_impl(
+        patch_elem,
+        FIELD_VALUE.as_ptr().cast(),
+        &mut expected,
+    ) == 0
     {
         set_patch_err(patch_error, EINVAL, msg_ptr(MSG_MISSING_VALUE));
         return -1;
@@ -349,8 +352,11 @@ pub(crate) unsafe fn json_patch_apply_impl(
             set_patch_err(patch_error, EINVAL, msg_ptr(MSG_MISSING_OP));
             return -1;
         }
-        if object::json_object_object_get_ex_impl(patch_elem, FIELD_PATH.as_ptr().cast(), &mut jpath)
-            == 0
+        if object::json_object_object_get_ex_impl(
+            patch_elem,
+            FIELD_PATH.as_ptr().cast(),
+            &mut jpath,
+        ) == 0
         {
             set_patch_err(patch_error, EINVAL, msg_ptr(MSG_MISSING_PATH));
             return -1;
