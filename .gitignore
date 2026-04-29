@@ -1,6 +1,8 @@
-build-check/
-build-deb/
-debian/
-safe/out/
-safe/target/
-testSubDir/
+/.work/
+/build/
+/dist/
+*.deb
+*.ddeb
+*.buildinfo
+*.changes
+*.log
