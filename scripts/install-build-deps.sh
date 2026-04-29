@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Install apt packages and a stable rust toolchain for libjson's safe
-# build. The port's own safe/tools/build-debs.sh drives cmake+cargo.
+# Install apt packages for libjson's safe build. The port's
+# safe/debian/control declares apt cargo + rustc as Build-Depends, and
+# safe/tools/build-debs.sh runs dpkg-buildpackage which enforces that
+# — so we install them as apt packages rather than via rustup.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -9,8 +11,8 @@ sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
   build-essential \
   ca-certificates \
+  cargo \
   cmake \
-  curl \
   debhelper \
   devscripts \
   dpkg-dev \
@@ -22,17 +24,5 @@ sudo apt-get install -y --no-install-recommends \
   pkg-config \
   python3 \
   rsync \
+  rustc \
   xz-utils
-
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-  | sh -s -- -y --profile minimal --default-toolchain stable --no-modify-path
-
-# shellcheck source=/dev/null
-. "$HOME/.cargo/env"
-rustup default stable
-rustc --version
-cargo --version
-
-if [[ -n "${GITHUB_PATH:-}" ]]; then
-  printf '%s\n' "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-fi
